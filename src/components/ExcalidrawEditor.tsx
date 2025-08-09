@@ -5,12 +5,14 @@ type ExcalidrawElement = any
 type ExcalidrawAppState = any
 import { useStore } from '../store/useStore'
 import { debounce } from '../lib/debounce'
+import { useMenuHandler } from '../hooks/useMenuHandler'
 
 export function ExcalidrawEditor() {
   const { activeFile, fileContent, setIsDirty, markFileAsModified, saveCurrentFile } = useStore()
   const [excalidrawAPI, setExcalidrawAPI] = useState<any>(null)
   const contentRef = useRef<string | null>(null)
   const isLoadingRef = useRef(false)
+  const { setExcalidrawAPI: setMenuExcalidrawAPI } = useMenuHandler()
 
   console.log('ExcalidrawEditor render - activeFile:', activeFile?.name, 'hasContent:', !!fileContent)
 
@@ -110,6 +112,7 @@ export function ExcalidrawEditor() {
         excalidrawAPI={(api) => {
           console.log('Excalidraw API initialized:', !!api)
           setExcalidrawAPI(api)
+          setMenuExcalidrawAPI(api)
         }}
         onChange={handleChange}
         name={activeFile.name}
