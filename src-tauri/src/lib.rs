@@ -1,3 +1,5 @@
+mod menu;
+
 use notify::{Event, EventKind, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -107,6 +109,34 @@ async fn save_file(file_path: String, content: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+async fn save_file_as(app: AppHandle, content: String) -> Result<Option<String>, String> {
+    use std::sync::mpsc;
+    use tauri_plugin_dialog::DialogExt;
+
+    let (tx, rx) = mpsc::channel();
+
+    app.dialog()
+        .file()
+        .add_filter("Excalidraw", &["excalidraw"])
+        .set_title("Save As")
+        .save_file(move |path| {
+            let _ = tx.send(path);
+        });
+
+    match rx.recv() {
+        Ok(Some(path)) => {
+            let path_str = path.to_string();
+            match fs::write(&path_str, content) {
+                Ok(_) => Ok(Some(path_str)),
+                Err(e) => Err(e.to_string()),
+            }
+        }
+        Ok(None) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[tauri::command]
 async fn create_new_file(directory: String, file_name: String) -> Result<String, String> {
     let path = Path::new(&directory).join(&file_name);
 
@@ -156,6 +186,9 @@ async fn save_preferences(app: AppHandle, preferences: Preferences) -> Result<()
 
     store.set("preferences", serde_json::to_value(&preferences).unwrap());
     store.save().map_err(|e| e.to_string())?;
+
+    // Update recent directories menu
+    let _ = menu::update_recent_directories_menu(&app, preferences.recent_directories.clone());
 
     Ok(())
 }
@@ -223,6 +256,28 @@ pub fn run() {
                 current_directory: Mutex::new(None),
                 modified_files: Mutex::new(Vec::new()),
             });
+
+            // Create and set up the menu
+            let menu = menu::create_menu(app.handle())?;
+            app.set_menu(menu)?;
+            menu::setup_menu_event_handler(app.handle());
+
+            // Load preferences and update recent directories menu
+            let app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                use tauri_plugin_store::StoreExt;
+                if let Ok(store) = app_handle.store("preferences.json") {
+                    if let Some(value) = store.get("preferences") {
+                        if let Ok(prefs) = serde_json::from_value::<Preferences>(value.clone()) {
+                            let _ = menu::update_recent_directories_menu(
+                                &app_handle,
+                                prefs.recent_directories,
+                            );
+                        }
+                    }
+                }
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -230,6 +285,7 @@ pub fn run() {
             list_excalidraw_files,
             read_file,
             save_file,
+            save_file_as,
             create_new_file,
             get_preferences,
             save_preferences,
