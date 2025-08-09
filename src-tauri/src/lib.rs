@@ -15,6 +15,15 @@ pub struct ExcalidrawFile {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct FileTreeNode {
+    pub name: String,
+    pub path: String,
+    pub is_directory: bool,
+    pub modified: bool,
+    pub children: Option<Vec<FileTreeNode>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Preferences {
     pub last_directory: Option<String>,
     pub recent_directories: Vec<String>,
@@ -65,8 +74,34 @@ async fn list_excalidraw_files(directory: String) -> Result<Vec<ExcalidrawFile>,
     }
 
     let mut files = Vec::new();
+    collect_excalidraw_files_recursive(path, &mut files)?;
+    files.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(files)
+}
 
-    match fs::read_dir(path) {
+#[tauri::command]
+async fn get_file_tree(directory: String) -> Result<Vec<FileTreeNode>, String> {
+    let path = Path::new(&directory);
+
+    if !path.exists() {
+        return Err("Directory does not exist".to_string());
+    }
+
+    let mut tree = Vec::new();
+    build_file_tree(path, &mut tree)?;
+    tree.sort_by(|a, b| match (a.is_directory, b.is_directory) {
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        _ => a.name.cmp(&b.name),
+    });
+    Ok(tree)
+}
+
+fn collect_excalidraw_files_recursive(
+    dir: &Path,
+    files: &mut Vec<ExcalidrawFile>,
+) -> Result<(), String> {
+    match fs::read_dir(dir) {
         Ok(entries) => {
             for entry in entries.flatten() {
                 let path = entry.path();
@@ -82,14 +117,86 @@ async fn list_excalidraw_files(directory: String) -> Result<Vec<ExcalidrawFile>,
                             }
                         }
                     }
+                } else if path.is_dir() {
+                    collect_excalidraw_files_recursive(&path, files)?;
                 }
             }
         }
         Err(e) => return Err(e.to_string()),
     }
+    Ok(())
+}
 
-    files.sort_by(|a, b| a.name.cmp(&b.name));
-    Ok(files)
+fn build_file_tree(dir: &Path, tree: &mut Vec<FileTreeNode>) -> Result<(), String> {
+    match fs::read_dir(dir) {
+        Ok(entries) => {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                let name = path
+                    .file_name()
+                    .ok_or("Invalid file name")?
+                    .to_string_lossy()
+                    .to_string();
+
+                if path.is_dir() {
+                    let mut children = Vec::new();
+                    build_file_tree(&path, &mut children)?;
+
+                    // Only include directories that contain .excalidraw files (directly or in subdirs)
+                    if has_excalidraw_files(&path)? {
+                        children.sort_by(|a, b| match (a.is_directory, b.is_directory) {
+                            (true, false) => std::cmp::Ordering::Less,
+                            (false, true) => std::cmp::Ordering::Greater,
+                            _ => a.name.cmp(&b.name),
+                        });
+
+                        tree.push(FileTreeNode {
+                            name,
+                            path: path.to_string_lossy().to_string(),
+                            is_directory: true,
+                            modified: false,
+                            children: Some(children),
+                        });
+                    }
+                } else if path.is_file() {
+                    if let Some(extension) = path.extension() {
+                        if extension == "excalidraw" {
+                            tree.push(FileTreeNode {
+                                name,
+                                path: path.to_string_lossy().to_string(),
+                                is_directory: false,
+                                modified: false,
+                                children: None,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        Err(e) => return Err(e.to_string()),
+    }
+    Ok(())
+}
+
+fn has_excalidraw_files(dir: &Path) -> Result<bool, String> {
+    match fs::read_dir(dir) {
+        Ok(entries) => {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_file() {
+                    if let Some(extension) = path.extension() {
+                        if extension == "excalidraw" {
+                            return Ok(true);
+                        }
+                    }
+                } else if path.is_dir() && has_excalidraw_files(&path)? {
+                    return Ok(true);
+                }
+            }
+        }
+        Err(e) => return Err(e.to_string()),
+    }
+    Ok(false)
 }
 
 #[tauri::command]
@@ -138,10 +245,60 @@ async fn save_file_as(app: AppHandle, content: String) -> Result<Option<String>,
 
 #[tauri::command]
 async fn create_new_file(directory: String, file_name: String) -> Result<String, String> {
-    let path = Path::new(&directory).join(&file_name);
+    println!(
+        "[create_new_file] Called with directory: {}, file_name: {}",
+        directory, file_name
+    );
 
+    // Verify the directory exists
+    let dir_path = Path::new(&directory);
+    if !dir_path.exists() {
+        eprintln!("[create_new_file] Directory does not exist: {}", directory);
+        return Err(format!("Directory does not exist: {}", directory));
+    }
+
+    if !dir_path.is_dir() {
+        eprintln!("[create_new_file] Path is not a directory: {}", directory);
+        return Err(format!("Path is not a directory: {}", directory));
+    }
+
+    let mut path = dir_path.join(&file_name);
+    println!("[create_new_file] Initial path: {:?}", path);
+
+    // Check if file already exists and suggest alternative
     if path.exists() {
-        return Err("File already exists".to_string());
+        println!("[create_new_file] File already exists, finding unique name");
+        // Find a unique name by appending numbers
+        let mut counter = 1;
+
+        // Get the base name without extension
+        let stem = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .ok_or("Invalid file name")?
+            .to_string(); // Convert to owned String
+
+        // Handle the .excalidraw extension properly
+        let base_stem = if stem.ends_with(".excalidraw") {
+            stem.trim_end_matches(".excalidraw").to_string()
+        } else {
+            stem
+        };
+
+        loop {
+            let new_name = format!("{}-{}.excalidraw", base_stem, counter);
+            path = dir_path.join(&new_name);
+
+            if !path.exists() {
+                println!("[create_new_file] Found unique name: {:?}", path);
+                break;
+            }
+            counter += 1;
+
+            if counter > 100 {
+                return Err("Could not find unique file name".to_string());
+            }
+        }
     }
 
     let default_content = serde_json::json!({
@@ -154,12 +311,44 @@ async fn create_new_file(directory: String, file_name: String) -> Result<String,
             "viewBackgroundColor": "#ffffff"
         },
         "files": {}
-    })
-    .to_string();
+    });
 
-    match fs::write(&path, default_content) {
-        Ok(_) => Ok(path.to_string_lossy().to_string()),
-        Err(e) => Err(e.to_string()),
+    let content_str = serde_json::to_string_pretty(&default_content)
+        .map_err(|e| format!("Failed to serialize content: {}", e))?;
+
+    println!("[create_new_file] Writing to path: {:?}", path);
+    match fs::write(&path, &content_str) {
+        Ok(_) => {
+            println!("[create_new_file] Successfully created file: {:?}", path);
+
+            // Verify the file was created
+            if !path.exists() {
+                eprintln!("[create_new_file] File doesn't exist after creation!");
+                return Err("File creation verification failed".to_string());
+            }
+
+            // Verify we can read it back
+            match fs::read_to_string(&path) {
+                Ok(read_content) => {
+                    println!(
+                        "[create_new_file] File verified, content length: {}",
+                        read_content.len()
+                    );
+                }
+                Err(e) => {
+                    eprintln!(
+                        "[create_new_file] Warning: Could not verify file content: {}",
+                        e
+                    );
+                }
+            }
+
+            Ok(path.to_string_lossy().to_string())
+        }
+        Err(e) => {
+            eprintln!("[create_new_file] Failed to create file: {}", e);
+            Err(format!("Failed to create file: {}", e))
+        }
     }
 }
 
@@ -170,12 +359,115 @@ async fn get_preferences(app: AppHandle) -> Result<Preferences, String> {
     let store = app.store("preferences.json").map_err(|e| e.to_string())?;
 
     let prefs = if let Some(value) = store.get("preferences") {
-        serde_json::from_value(value.clone()).unwrap_or_default()
+        // Try to deserialize, but ensure all fields have values
+        match serde_json::from_value::<Preferences>(value.clone()) {
+            Ok(mut p) => {
+                // Ensure recent_directories is never None/null
+                if p.recent_directories.is_empty() {
+                    p.recent_directories = Vec::new();
+                }
+                p
+            }
+            Err(_) => Preferences::default(),
+        }
     } else {
         Preferences::default()
     };
 
     Ok(prefs)
+}
+
+#[tauri::command]
+async fn rename_file(old_path: String, new_name: String) -> Result<String, String> {
+    let old_path = Path::new(&old_path);
+
+    if !old_path.exists() {
+        return Err("File does not exist".to_string());
+    }
+
+    let parent = old_path.parent().ok_or("Invalid file path")?;
+    let new_path = parent.join(&new_name);
+
+    if new_path.exists() && new_path != old_path {
+        return Err("A file with that name already exists".to_string());
+    }
+
+    // CRITICAL FIX: Read the content first, then write to new file, then delete old
+    // This prevents data loss if something goes wrong
+    println!("Renaming file from {:?} to {:?}", old_path, new_path);
+
+    // Step 1: Read the original file content
+    let content = match fs::read_to_string(old_path) {
+        Ok(content) => {
+            println!(
+                "Successfully read original file, content length: {}",
+                content.len()
+            );
+            content
+        }
+        Err(e) => {
+            eprintln!("Failed to read original file: {}", e);
+            return Err(format!("Failed to read original file: {}", e));
+        }
+    };
+
+    // Step 2: Write content to the new file
+    match fs::write(&new_path, &content) {
+        Ok(_) => {
+            println!("Successfully wrote content to new file");
+        }
+        Err(e) => {
+            eprintln!("Failed to write to new file: {}", e);
+            return Err(format!("Failed to create new file: {}", e));
+        }
+    }
+
+    // Step 3: Verify the new file exists and has content
+    match fs::read_to_string(&new_path) {
+        Ok(new_content) => {
+            if new_content != content {
+                eprintln!("Warning: New file content doesn't match original!");
+                // Delete the corrupted new file
+                let _ = fs::remove_file(&new_path);
+                return Err("File content verification failed".to_string());
+            }
+            println!("New file verified successfully");
+        }
+        Err(e) => {
+            eprintln!("Failed to verify new file: {}", e);
+            // Delete the potentially corrupted new file
+            let _ = fs::remove_file(&new_path);
+            return Err(format!("Failed to verify new file: {}", e));
+        }
+    }
+
+    // Step 4: Only delete the original file after successful verification
+    match fs::remove_file(old_path) {
+        Ok(_) => {
+            println!("Successfully deleted original file");
+            Ok(new_path.to_string_lossy().to_string())
+        }
+        Err(e) => {
+            eprintln!("Warning: Failed to delete original file: {}", e);
+            // The rename was successful, but cleanup failed
+            // Return success but log the warning
+            Ok(new_path.to_string_lossy().to_string())
+        }
+    }
+}
+
+#[tauri::command]
+async fn delete_file(file_path: String) -> Result<(), String> {
+    let path = Path::new(&file_path);
+
+    if !path.exists() {
+        return Err("File does not exist".to_string());
+    }
+
+    match fs::remove_file(path) {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e.to_string()),
+    }
 }
 
 #[tauri::command]
@@ -213,7 +505,7 @@ async fn watch_directory(
     let mut watcher = notify::recommended_watcher(tx).map_err(|e| e.to_string())?;
 
     watcher
-        .watch(&path, RecursiveMode::NonRecursive)
+        .watch(&path, RecursiveMode::Recursive)
         .map_err(|e| e.to_string())?;
 
     // Spawn a thread to handle file system events
@@ -283,10 +575,13 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             select_directory,
             list_excalidraw_files,
+            get_file_tree,
             read_file,
             save_file,
             save_file_as,
             create_new_file,
+            rename_file,
+            delete_file,
             get_preferences,
             save_preferences,
             watch_directory,
