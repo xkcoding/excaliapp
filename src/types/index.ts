@@ -4,6 +4,14 @@ export interface ExcalidrawFile {
   modified: boolean
 }
 
+export interface FileTreeNode {
+  name: string
+  path: string
+  is_directory: boolean
+  modified: boolean
+  children?: FileTreeNode[]
+}
+
 export interface AppState {
   currentDirectory: string | null
   files: ExcalidrawFile[]

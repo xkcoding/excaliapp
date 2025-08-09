@@ -5,21 +5,40 @@ type ExcalidrawElement = any
 type ExcalidrawAppState = any
 import { useStore } from '../store/useStore'
 import { debounce } from '../lib/debounce'
-import { useMenuHandler } from '../hooks/useMenuHandler'
+import { setGlobalExcalidrawAPI } from '../hooks/useMenuHandler'
 
 export function ExcalidrawEditor() {
   const { activeFile, fileContent, setIsDirty, markFileAsModified, saveCurrentFile } = useStore()
   const [excalidrawAPI, setExcalidrawAPI] = useState<any>(null)
   const contentRef = useRef<string | null>(null)
   const isLoadingRef = useRef(false)
-  const { setExcalidrawAPI: setMenuExcalidrawAPI } = useMenuHandler()
 
   console.log('ExcalidrawEditor render - activeFile:', activeFile?.name, 'hasContent:', !!fileContent)
 
-  // Debounced save function
+  // Debounced save function with validation
   const debouncedSave = useRef(
     debounce(async (content: string) => {
-      await saveCurrentFile(content)
+      console.log('[ExcalidrawEditor] Debounced save triggered')
+      
+      // Validate content before saving
+      try {
+        const parsed = JSON.parse(content)
+        if (!parsed || typeof parsed !== 'object') {
+          console.error('[ExcalidrawEditor] Invalid JSON structure, skipping save')
+          return
+        }
+        
+        // Check if there's meaningful content to save
+        if (!parsed.elements || !Array.isArray(parsed.elements)) {
+          console.error('[ExcalidrawEditor] Missing elements array, skipping save')
+          return
+        }
+        
+        console.log('[ExcalidrawEditor] Content valid, saving...')
+        await saveCurrentFile(content)
+      } catch (error) {
+        console.error('[ExcalidrawEditor] Failed to validate content:', error)
+      }
     }, 1000)
   ).current
 
@@ -59,7 +78,10 @@ export function ExcalidrawEditor() {
     files: any
   ) => {
     // Skip if we're loading content
-    if (isLoadingRef.current || !activeFile) return
+    if (isLoadingRef.current || !activeFile) {
+      console.log('[ExcalidrawEditor.handleChange] Skipping - loading or no active file')
+      return
+    }
 
     const newContent = JSON.stringify(
       {
@@ -88,10 +110,20 @@ export function ExcalidrawEditor() {
 
     // Check if content actually changed
     if (newContent !== contentRef.current) {
+      console.log('[ExcalidrawEditor.handleChange] Content changed, marking dirty')
+      
+      // Don't mark as dirty if it's just an empty file
+      const hasRealChanges = elements && elements.length > 0
+      
       contentRef.current = newContent
-      setIsDirty(true)
-      markFileAsModified(activeFile.path, true)
-      debouncedSave(newContent)
+      
+      if (hasRealChanges || contentRef.current !== fileContent) {
+        setIsDirty(true)
+        markFileAsModified(activeFile.path, true)
+        debouncedSave(newContent)
+      } else {
+        console.log('[ExcalidrawEditor.handleChange] No real changes, skipping save')
+      }
     }
   }
 
@@ -112,7 +144,7 @@ export function ExcalidrawEditor() {
         excalidrawAPI={(api) => {
           console.log('Excalidraw API initialized:', !!api)
           setExcalidrawAPI(api)
-          setMenuExcalidrawAPI(api)
+          setGlobalExcalidrawAPI(api)
         }}
         onChange={handleChange}
         name={activeFile.name}

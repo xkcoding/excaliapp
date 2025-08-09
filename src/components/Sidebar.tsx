@@ -1,15 +1,29 @@
 import { ScrollArea } from '@radix-ui/react-scroll-area'
-import { ChevronRight, File, FolderOpen, Plus } from 'lucide-react'
-import { cn } from '../lib/utils'
+import { FolderOpen, Plus } from 'lucide-react'
 import { useStore } from '../store/useStore'
+import { TreeView } from './TreeView'
+import { FileTreeNode } from '../types'
 import { invoke } from '@tauri-apps/api/core'
+
+function countFilesInTree(nodes: FileTreeNode[]): number {
+  let count = 0
+  for (const node of nodes) {
+    if (!node.is_directory) {
+      count++
+    }
+    if (node.children) {
+      count += countFilesInTree(node.children)
+    }
+  }
+  return count
+}
 
 export function Sidebar() {
   const {
     currentDirectory,
-    files,
+    fileTree,
     activeFile,
-    loadFile,
+    loadFileFromTree,
     createNewFile,
   } = useStore()
 
@@ -21,10 +35,19 @@ export function Sidebar() {
   }
 
   const handleNewFile = async () => {
-    const fileName = prompt('Enter file name (without .excalidraw extension):')
-    if (fileName) {
-      await createNewFile(`${fileName}.excalidraw`)
+    // Simple direct call without prompts for now
+    if (!currentDirectory) {
+      // If no directory, select one first
+      const dir = await invoke<string | null>('select_directory')
+      if (dir) {
+        await useStore.getState().loadDirectory(dir)
+      }
+      return
     }
+    
+    // Create with timestamp filename for now
+    const fileName = `Untitled-${Date.now()}.excalidraw`
+    await createNewFile(fileName)
   }
 
   return (
@@ -41,50 +64,29 @@ export function Sidebar() {
           </span>
         </button>
         
-        {currentDirectory && (
-          <button
-            onClick={handleNewFile}
-            className="w-full mt-2 flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-100 hover:text-gray-900 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            <span className="text-sm">New File</span>
-          </button>
-        )}
+        <button
+          onClick={handleNewFile}
+          className="w-full mt-2 flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-100 hover:text-gray-900 transition-colors"
+          title={!currentDirectory ? 'Select a directory first' : 'Create a new Excalidraw file'}
+        >
+          <Plus className="w-4 h-4" />
+          <span className="text-sm">New File</span>
+        </button>
       </div>
 
-      {/* File List */}
+      {/* File Tree */}
       <ScrollArea className="flex-1 overflow-y-auto">
         <div className="p-2">
-          {files.length === 0 ? (
+          {fileTree.length === 0 ? (
             <div className="text-sm text-gray-500 text-center py-8">
               {currentDirectory ? 'No .excalidraw files found' : 'No directory selected'}
             </div>
           ) : (
-            <div className="space-y-1">
-              {files.map((file) => (
-                <button
-                  key={file.path}
-                  onClick={() => loadFile(file)}
-                  className={cn(
-                    'w-full flex items-center gap-2 px-3 py-2 rounded-md text-left transition-colors group',
-                    'hover:bg-gray-100 hover:text-gray-900',
-                    activeFile?.path === file.path && 'bg-blue-50 text-blue-900',
-                    file.modified && 'font-semibold'
-                  )}
-                >
-                  <File className="w-4 h-4 flex-shrink-0" />
-                  <span className="text-sm truncate flex-1">
-                    {file.name.replace('.excalidraw', '')}
-                  </span>
-                  {file.modified && (
-                    <span className="w-2 h-2 bg-orange-500 rounded-full flex-shrink-0" />
-                  )}
-                  {activeFile?.path === file.path && (
-                    <ChevronRight className="w-4 h-4 flex-shrink-0" />
-                  )}
-                </button>
-              ))}
-            </div>
+            <TreeView
+              nodes={fileTree}
+              onFileClick={loadFileFromTree}
+              activeFilePath={activeFile?.path}
+            />
           )}
         </div>
       </ScrollArea>
@@ -92,7 +94,7 @@ export function Sidebar() {
       {/* Footer */}
       <div className="p-3 border-t border-gray-200">
         <div className="text-xs text-gray-500">
-          {files.length} file{files.length !== 1 ? 's' : ''}
+          {countFilesInTree(fileTree)} file{countFilesInTree(fileTree) !== 1 ? 's' : ''}
         </div>
       </div>
     </div>

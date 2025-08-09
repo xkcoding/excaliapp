@@ -1,12 +1,20 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { listen, UnlistenFn } from '@tauri-apps/api/event'
 import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useStore } from '../store/useStore'
+import { convertPreferencesToRust } from '../lib/preferences'
 
 interface MenuCommand {
   command: string
   data?: any
+}
+
+// Singleton to store the Excalidraw API reference
+let globalExcalidrawAPI: any = null
+
+export function setGlobalExcalidrawAPI(api: any) {
+  globalExcalidrawAPI = api
 }
 
 export function useMenuHandler() {
@@ -20,20 +28,19 @@ export function useMenuHandler() {
     savePreferences,
   } = useStore()
 
-  const excalidrawAPIRef = useRef<any>(null)
-
-  // Store reference to Excalidraw API
+  // Use the global reference instead of a local one
   const setExcalidrawAPI = (api: any) => {
-    excalidrawAPIRef.current = api
+    setGlobalExcalidrawAPI(api)
   }
 
   useEffect(() => {
+    console.log('🟣 [useMenuHandler] Setting up menu command listener')
     let unlisten: UnlistenFn | null = null
 
     const setupListener = async () => {
       unlisten = await listen<MenuCommand>('menu-command', async (event) => {
         const { command, data } = event.payload
-        console.log('Menu command received:', command, data)
+        console.log('🟣 [useMenuHandler] Menu command received:', command, data)
 
         switch (command) {
           // File menu commands
@@ -160,11 +167,20 @@ export function useMenuHandler() {
   }
 
   const handleNewFile = async () => {
-    // Create a simple dialog to get the file name
-    const fileName = window.prompt('Enter file name (without .excalidraw extension):')
-    if (fileName) {
-      await createNewFile(`${fileName}.excalidraw`)
+    const state = useStore.getState()
+    
+    // If no directory is selected, select one first
+    if (!state.currentDirectory) {
+      const dir = await invoke<string | null>('select_directory')
+      if (dir) {
+        await state.loadDirectory(dir)
+      }
+      return
     }
+    
+    // Create with timestamp filename
+    const fileName = `Untitled-${Date.now()}.excalidraw`
+    await createNewFile(fileName)
   }
 
   const handleSaveAs = async () => {
@@ -191,14 +207,16 @@ export function useMenuHandler() {
       ...preferences,
       recentDirectories: [],
     }
-    await invoke('save_preferences', { preferences: newPrefs })
+    // Convert to snake_case for Rust backend
+    const prefsToSave = convertPreferencesToRust(newPrefs)
+    await invoke('save_preferences', { preferences: prefsToSave })
     useStore.getState().setPreferences(newPrefs)
   }
 
   // Edit menu handlers - delegate to Excalidraw
   const handleUndo = () => {
-    if (excalidrawAPIRef.current) {
-      const actionManager = excalidrawAPIRef.current.actionManager
+    if (globalExcalidrawAPI) {
+      const actionManager = globalExcalidrawAPI.actionManager
       if (actionManager) {
         actionManager.executeAction('undo')
       }
@@ -206,8 +224,8 @@ export function useMenuHandler() {
   }
 
   const handleRedo = () => {
-    if (excalidrawAPIRef.current) {
-      const actionManager = excalidrawAPIRef.current.actionManager
+    if (globalExcalidrawAPI) {
+      const actionManager = globalExcalidrawAPI.actionManager
       if (actionManager) {
         actionManager.executeAction('redo')
       }
@@ -227,8 +245,8 @@ export function useMenuHandler() {
   }
 
   const handleSelectAll = () => {
-    if (excalidrawAPIRef.current) {
-      const actionManager = excalidrawAPIRef.current.actionManager
+    if (globalExcalidrawAPI) {
+      const actionManager = globalExcalidrawAPI.actionManager
       if (actionManager) {
         actionManager.executeAction('selectAll')
       }
@@ -237,9 +255,9 @@ export function useMenuHandler() {
 
   // View menu handlers
   const handleZoomIn = () => {
-    if (excalidrawAPIRef.current) {
-      const appState = excalidrawAPIRef.current.getAppState()
-      excalidrawAPIRef.current.updateScene({
+    if (globalExcalidrawAPI) {
+      const appState = globalExcalidrawAPI.getAppState()
+      globalExcalidrawAPI.updateScene({
         appState: {
           ...appState,
           zoom: {
@@ -251,9 +269,9 @@ export function useMenuHandler() {
   }
 
   const handleZoomOut = () => {
-    if (excalidrawAPIRef.current) {
-      const appState = excalidrawAPIRef.current.getAppState()
-      excalidrawAPIRef.current.updateScene({
+    if (globalExcalidrawAPI) {
+      const appState = globalExcalidrawAPI.getAppState()
+      globalExcalidrawAPI.updateScene({
         appState: {
           ...appState,
           zoom: {
@@ -265,8 +283,8 @@ export function useMenuHandler() {
   }
 
   const handleResetZoom = () => {
-    if (excalidrawAPIRef.current) {
-      excalidrawAPIRef.current.resetScene()
+    if (globalExcalidrawAPI) {
+      globalExcalidrawAPI.resetScene()
     }
   }
 
