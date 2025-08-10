@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { invoke } from '@tauri-apps/api/core'
 import { ExcalidrawFile, FileTreeNode, Preferences } from '../types'
 import { convertPreferencesFromRust, convertPreferencesToRust } from '../lib/preferences'
+import { ask } from '@tauri-apps/plugin-dialog'
 
 interface AppStore {
   // State
@@ -13,7 +14,6 @@ interface AppStore {
   preferences: Preferences
   sidebarVisible: boolean
   isDirty: boolean
-  autoSaveTimer: ReturnType<typeof setInterval> | null
 
   // Actions
   setCurrentDirectory: (dir: string | null) => void
@@ -35,12 +35,10 @@ interface AppStore {
   saveCurrentFile: (content?: string) => Promise<void>
   createNewFile: (fileName?: string) => Promise<void>
   renameFile: (oldPath: string, newName: string) => Promise<void>
-  deleteFile: (filePath: string) => Promise<void>
+  deleteFile: (filePath: string) => Promise<boolean>
   loadPreferences: () => Promise<void>
   savePreferences: () => Promise<void>
   toggleSidebar: () => void
-  startAutoSave: () => void
-  stopAutoSave: () => void
 }
 
 export const useStore = create<AppStore>((set, get) => ({
@@ -58,7 +56,6 @@ export const useStore = create<AppStore>((set, get) => ({
   },
   sidebarVisible: true,
   isDirty: false,
-  autoSaveTimer: null,
 
   // Basic setters
   setCurrentDirectory: (dir) => set({ currentDirectory: dir }),
@@ -68,7 +65,10 @@ export const useStore = create<AppStore>((set, get) => ({
   setFileContent: (content) => set({ fileContent: content }),
   setPreferences: (prefs) => set({ preferences: prefs }),
   setSidebarVisible: (visible) => set({ sidebarVisible: visible }),
-  setIsDirty: (dirty) => set({ isDirty: dirty }),
+  setIsDirty: (dirty) => {
+    console.log('[Store] setIsDirty called with:', dirty)
+    set({ isDirty: dirty })
+  },
   
   markFileAsModified: (filePath, modified) => {
     set((state) => ({
@@ -157,9 +157,32 @@ export const useStore = create<AppStore>((set, get) => ({
   loadFile: async (file) => {
     const state = get()
     
-    // Save current file if dirty
+    // If clicking the same file that's already active, do nothing
+    if (state.activeFile?.path === file.path) {
+      console.log('[loadFile] Same file already active, skipping reload')
+      return
+    }
+    
+    // Check if current file has unsaved changes
     if (state.isDirty && state.activeFile) {
-      await state.saveCurrentFile()
+      const response = await ask(
+        `Do you want to save changes to "${state.activeFile.name}" before switching files?`,
+        {
+          title: 'Unsaved Changes',
+          kind: 'warning',
+          okLabel: 'Save',
+          cancelLabel: "Don't Save"
+        }
+      )
+      
+      if (response === true) {
+        // User chose to save
+        await state.saveCurrentFile()
+      } else if (response === null) {
+        // User cancelled - don't switch files
+        return
+      }
+      // If response is false, user chose "Don't Save" - continue without saving
     }
     
     try {
@@ -173,8 +196,9 @@ export const useStore = create<AppStore>((set, get) => ({
         isDirty: false,
       })
       
-      // Start auto-save
-      state.startAutoSave()
+      // Clear modified state for this file
+      state.markFileAsModified(file.path, false)
+      state.markTreeNodeAsModified(file.path, false)
     } catch (error) {
       console.error('Failed to load file:', error)
       
@@ -208,9 +232,35 @@ export const useStore = create<AppStore>((set, get) => ({
     
     const state = get()
     
-    // Save current file if dirty
+    // If clicking the same file that's already active, do nothing
+    if (state.activeFile?.path === node.path) {
+      console.log('[loadFileFromTree] Same file already active, skipping reload')
+      return
+    }
+    
+    console.log('[loadFileFromTree] Switching files. Current isDirty:', state.isDirty, 'activeFile:', state.activeFile?.name)
+    
+    // Check if current file has unsaved changes
     if (state.isDirty && state.activeFile) {
-      await state.saveCurrentFile()
+      console.log('[loadFileFromTree] Prompting to save changes for:', state.activeFile.name)
+      const response = await ask(
+        `Do you want to save changes to "${state.activeFile.name}" before switching files?`,
+        {
+          title: 'Unsaved Changes',
+          kind: 'warning',
+          okLabel: 'Save',
+          cancelLabel: "Don't Save"
+        }
+      )
+      
+      if (response === true) {
+        // User chose to save
+        await state.saveCurrentFile()
+      } else if (response === null) {
+        // User cancelled - don't switch files
+        return
+      }
+      // If response is false, user chose "Don't Save" - continue without saving
     }
     
     try {
@@ -228,11 +278,11 @@ export const useStore = create<AppStore>((set, get) => ({
       set({
         activeFile: file,
         fileContent: content,
-        isDirty: false,
+        // Don't change isDirty here - it will be set to false by ExcalidrawEditor after loading
       })
       
-      // Start auto-save
-      state.startAutoSave()
+      // Don't clear modified state here either - let the editor handle it
+      console.log('[loadFileFromTree] File loaded, letting editor handle dirty state')
     } catch (error) {
       console.error('Failed to load file:', error)
       
@@ -323,9 +373,26 @@ export const useStore = create<AppStore>((set, get) => ({
     const state = get()
     let { currentDirectory } = state
     
-    // Save current file if it's dirty before creating new file
+    // Check if current file has unsaved changes
     if (state.isDirty && state.activeFile) {
-      await state.saveCurrentFile()
+      const response = await ask(
+        `Do you want to save changes to "${state.activeFile.name}" before creating a new file?`,
+        {
+          title: 'Unsaved Changes',
+          kind: 'warning',
+          okLabel: 'Save',
+          cancelLabel: "Don't Save"
+        }
+      )
+      
+      if (response === true) {
+        // User chose to save
+        await state.saveCurrentFile()
+      } else if (response === null) {
+        // User cancelled - don't create new file
+        return
+      }
+      // If response is false, user chose "Don't Save" - continue without saving
     }
     
     // Check if a directory is selected
@@ -430,7 +497,6 @@ export const useStore = create<AppStore>((set, get) => ({
           fileContent: null,
           isDirty: false,
         })
-        state.stopAutoSave()
       }
       
       // Reload the file tree
@@ -533,30 +599,4 @@ export const useStore = create<AppStore>((set, get) => ({
     state.savePreferences()
   },
 
-  // Auto-save functionality
-  startAutoSave: () => {
-    const state = get()
-    
-    // Clear existing timer
-    if (state.autoSaveTimer) {
-      clearInterval(state.autoSaveTimer)
-    }
-    
-    // Set up new timer (30 seconds)
-    const timer = setInterval(() => {
-      if (get().isDirty) {
-        get().saveCurrentFile()
-      }
-    }, 30000)
-    
-    set({ autoSaveTimer: timer })
-  },
-
-  stopAutoSave: () => {
-    const { autoSaveTimer } = get()
-    if (autoSaveTimer) {
-      clearInterval(autoSaveTimer)
-      set({ autoSaveTimer: null })
-    }
-  },
 }))
