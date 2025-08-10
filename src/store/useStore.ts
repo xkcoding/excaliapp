@@ -65,10 +65,7 @@ export const useStore = create<AppStore>((set, get) => ({
   setFileContent: (content) => set({ fileContent: content }),
   setPreferences: (prefs) => set({ preferences: prefs }),
   setSidebarVisible: (visible) => set({ sidebarVisible: visible }),
-  setIsDirty: (dirty) => {
-    console.log('[Store] setIsDirty called with:', dirty)
-    set({ isDirty: dirty })
-  },
+  setIsDirty: (dirty) => set({ isDirty: dirty }),
   
   markFileAsModified: (filePath, modified) => {
     set((state) => ({
@@ -159,7 +156,6 @@ export const useStore = create<AppStore>((set, get) => ({
     
     // If clicking the same file that's already active, do nothing
     if (state.activeFile?.path === file.path) {
-      console.log('[loadFile] Same file already active, skipping reload')
       return
     }
     
@@ -234,15 +230,11 @@ export const useStore = create<AppStore>((set, get) => ({
     
     // If clicking the same file that's already active, do nothing
     if (state.activeFile?.path === node.path) {
-      console.log('[loadFileFromTree] Same file already active, skipping reload')
       return
     }
     
-    console.log('[loadFileFromTree] Switching files. Current isDirty:', state.isDirty, 'activeFile:', state.activeFile?.name)
-    
     // Check if current file has unsaved changes
     if (state.isDirty && state.activeFile) {
-      console.log('[loadFileFromTree] Prompting to save changes for:', state.activeFile.name)
       const response = await ask(
         `Do you want to save changes to "${state.activeFile.name}" before switching files?`,
         {
@@ -282,7 +274,6 @@ export const useStore = create<AppStore>((set, get) => ({
       })
       
       // Don't clear modified state here either - let the editor handle it
-      console.log('[loadFileFromTree] File loaded, letting editor handle dirty state')
     } catch (error) {
       console.error('Failed to load file:', error)
       

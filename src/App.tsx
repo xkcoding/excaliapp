@@ -10,11 +10,9 @@ import './index.css'
 function App() {
   const { loadPreferences, loadDirectory, currentDirectory, sidebarVisible } = useStore()
 
-  console.log('App render - sidebarVisible:', sidebarVisible)
 
   // Load preferences and setup on mount
   useEffect(() => {
-    console.log('Loading preferences...')
     loadPreferences()
   }, [])
 
@@ -22,8 +20,7 @@ function App() {
   useEffect(() => {
     if (!currentDirectory) return
 
-    const unlisten = listen('file-system-change', async (event) => {
-      console.log('File system change detected:', event)
+    const unlisten = listen('file-system-change', async () => {
       // Reload the directory to refresh file list
       const state = useStore.getState()
       await state.loadFileTree(currentDirectory)
@@ -36,7 +33,6 @@ function App() {
         )
         
         if (!fileStillExists) {
-          console.log('Active file was deleted externally, clearing editor')
           state.setActiveFile(null)
           state.setFileContent(null)
           state.setIsDirty(false)
