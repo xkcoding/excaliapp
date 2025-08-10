@@ -215,21 +215,31 @@ export function useMenuHandler() {
 
   // Edit menu handlers - delegate to Excalidraw
   const handleUndo = () => {
-    if (globalExcalidrawAPI) {
-      const actionManager = globalExcalidrawAPI.actionManager
-      if (actionManager) {
-        actionManager.executeAction('undo')
-      }
-    }
+    // The Excalidraw component handles undo/redo internally through keyboard events
+    // We need to simulate these events on the window, not the element
+    const event = new KeyboardEvent('keydown', {
+      key: 'z',
+      code: 'KeyZ',
+      ctrlKey: !navigator.platform.includes('Mac'),
+      metaKey: navigator.platform.includes('Mac'),
+      bubbles: true,
+    })
+    window.dispatchEvent(event)
   }
 
   const handleRedo = () => {
-    if (globalExcalidrawAPI) {
-      const actionManager = globalExcalidrawAPI.actionManager
-      if (actionManager) {
-        actionManager.executeAction('redo')
-      }
-    }
+    // The Excalidraw component handles undo/redo internally through keyboard events
+    // We need to simulate these events on the window, not the element
+    const isMac = navigator.platform.includes('Mac')
+    const event = new KeyboardEvent('keydown', {
+      key: isMac ? 'z' : 'y',
+      code: isMac ? 'KeyZ' : 'KeyY',
+      ctrlKey: !isMac,
+      metaKey: isMac,
+      shiftKey: isMac,
+      bubbles: true,
+    })
+    window.dispatchEvent(event)
   }
 
   const handleCut = async () => {
@@ -375,7 +385,22 @@ export function useMenuHandler() {
 
   const handleResetZoom = () => {
     if (globalExcalidrawAPI) {
-      globalExcalidrawAPI.resetScene()
+      // Use scrollToContent to reset zoom without triggering changes
+      const elements = globalExcalidrawAPI.getSceneElements()
+      if (elements && elements.length > 0) {
+        globalExcalidrawAPI.scrollToContent(elements, {
+          fitToContent: true,
+        })
+      } else {
+        // If no elements, just reset the zoom and scroll
+        globalExcalidrawAPI.updateScene({
+          appState: {
+            zoom: { value: 1 },
+            scrollX: 0,
+            scrollY: 0,
+          },
+        })
+      }
     }
   }
 
@@ -383,6 +408,28 @@ export function useMenuHandler() {
     const window = getCurrentWindow()
     const isFullscreen = await window.isFullscreen()
     await window.setFullscreen(!isFullscreen)
+    
+    // Wait for fullscreen transition to complete, then refresh the view
+    if (globalExcalidrawAPI) {
+      setTimeout(() => {
+        try {
+          // Force Excalidraw to refresh its dimensions
+          globalExcalidrawAPI.refresh()
+          
+          // Then recenter the content
+          const elements = globalExcalidrawAPI.getSceneElements()
+          if (elements && elements.length > 0) {
+            setTimeout(() => {
+              globalExcalidrawAPI.scrollToContent(elements, {
+                fitToContent: true,
+              })
+            }, 100)
+          }
+        } catch (err) {
+          console.error('Failed to refresh view on fullscreen toggle:', err)
+        }
+      }, 300)
+    }
   }
 
   const handleShowKeyboardShortcuts = () => {
