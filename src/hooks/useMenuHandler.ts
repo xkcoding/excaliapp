@@ -232,16 +232,107 @@ export function useMenuHandler() {
     }
   }
 
-  const handleCut = () => {
-    document.execCommand('cut')
+  const handleCut = async () => {
+    try {
+      // Get selected elements from Excalidraw
+      if (globalExcalidrawAPI) {
+        const selectedElements = globalExcalidrawAPI.getSceneElements().filter((el: any) => 
+          globalExcalidrawAPI.getAppState().selectedElementIds[el.id]
+        )
+        
+        if (selectedElements.length > 0) {
+          // Copy to clipboard
+          const content = JSON.stringify(selectedElements)
+          await navigator.clipboard.writeText(content)
+          
+          // Delete selected elements
+          globalExcalidrawAPI.deleteElements(selectedElements)
+        }
+      } else {
+        // Fallback for text input fields
+        const activeElement = document.activeElement as HTMLInputElement | HTMLTextAreaElement
+        if (activeElement && ('select' in activeElement)) {
+          const text = activeElement.value.substring(
+            activeElement.selectionStart || 0,
+            activeElement.selectionEnd || 0
+          )
+          await navigator.clipboard.writeText(text)
+          
+          // Remove selected text
+          const start = activeElement.selectionStart || 0
+          const end = activeElement.selectionEnd || 0
+          activeElement.value = activeElement.value.substring(0, start) + 
+                                activeElement.value.substring(end)
+          activeElement.selectionStart = activeElement.selectionEnd = start
+        }
+      }
+    } catch (err) {
+      console.error('Failed to cut:', err)
+    }
   }
 
-  const handleCopy = () => {
-    document.execCommand('copy')
+  const handleCopy = async () => {
+    try {
+      // Get selected elements from Excalidraw
+      if (globalExcalidrawAPI) {
+        const selectedElements = globalExcalidrawAPI.getSceneElements().filter((el: any) => 
+          globalExcalidrawAPI.getAppState().selectedElementIds[el.id]
+        )
+        
+        if (selectedElements.length > 0) {
+          const content = JSON.stringify(selectedElements)
+          await navigator.clipboard.writeText(content)
+        }
+      } else {
+        // Fallback for text input fields
+        const activeElement = document.activeElement as HTMLInputElement | HTMLTextAreaElement
+        if (activeElement && ('select' in activeElement)) {
+          const text = activeElement.value.substring(
+            activeElement.selectionStart || 0,
+            activeElement.selectionEnd || 0
+          )
+          await navigator.clipboard.writeText(text)
+        }
+      }
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
   }
 
-  const handlePaste = () => {
-    document.execCommand('paste')
+  const handlePaste = async () => {
+    try {
+      const text = await navigator.clipboard.readText()
+      
+      if (globalExcalidrawAPI) {
+        // Try to parse as Excalidraw elements
+        try {
+          const elements = JSON.parse(text)
+          if (Array.isArray(elements)) {
+            // Add elements to the scene
+            globalExcalidrawAPI.addElements(elements)
+          }
+        } catch {
+          // If not valid JSON, let Excalidraw handle it as text
+          const actionManager = globalExcalidrawAPI.actionManager
+          if (actionManager) {
+            actionManager.executeAction('paste')
+          }
+        }
+      } else {
+        // Fallback for text input fields
+        const activeElement = document.activeElement as HTMLInputElement | HTMLTextAreaElement
+        if (activeElement && ('value' in activeElement)) {
+          const start = activeElement.selectionStart || 0
+          const end = activeElement.selectionEnd || 0
+          activeElement.value = activeElement.value.substring(0, start) + 
+                                text + 
+                                activeElement.value.substring(end)
+          activeElement.selectionStart = activeElement.selectionEnd = start + text.length
+        }
+      }
+    } catch (err) {
+      console.error('Failed to paste:', err)
+    }
   }
 
   const handleSelectAll = () => {

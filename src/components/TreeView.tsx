@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, memo } from 'react'
 import { ChevronDown, ChevronRight, File, Folder, FolderOpen, Edit2, Trash2, MoreVertical } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { FileTreeNode } from '../types'
@@ -18,7 +18,7 @@ interface TreeNodeProps {
   depth: number
 }
 
-function TreeNode({ node, onFileClick, activeFilePath, depth }: TreeNodeProps) {
+const TreeNode = memo(function TreeNode({ node, onFileClick, activeFilePath, depth }: TreeNodeProps) {
   const [isExpanded, setIsExpanded] = useState(depth === 0)
   const [isRenaming, setIsRenaming] = useState(false)
   const [newName, setNewName] = useState(node.name.replace('.excalidraw', ''))
@@ -239,7 +239,7 @@ function TreeNode({ node, onFileClick, activeFilePath, depth }: TreeNodeProps) {
       )}
     </div>
   )
-}
+})
 
 export function TreeView({ nodes, onFileClick, activeFilePath }: TreeViewProps) {
   if (nodes.length === 0) {

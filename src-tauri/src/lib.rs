@@ -1,4 +1,5 @@
 mod menu;
+mod security;
 
 use notify::{Event, EventKind, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
@@ -201,18 +202,39 @@ fn has_excalidraw_files(dir: &Path) -> Result<bool, String> {
 
 #[tauri::command]
 async fn read_file(file_path: String) -> Result<String, String> {
-    match fs::read_to_string(&file_path) {
-        Ok(content) => Ok(content),
-        Err(e) => Err(e.to_string()),
-    }
+    // Validate path to prevent traversal attacks
+    let path = Path::new(&file_path);
+    let validated_path = security::validate_path(path, None)?;
+    
+    // Validate it's an excalidraw file
+    security::validate_excalidraw_file(&validated_path)?;
+    
+    // Read and validate content
+    let content = fs::read_to_string(&validated_path)
+        .map_err(|e| e.to_string())?;
+    
+    // Validate the content is valid Excalidraw JSON
+    security::validate_excalidraw_content(&content)?;
+    
+    Ok(content)
 }
 
 #[tauri::command]
 async fn save_file(file_path: String, content: String) -> Result<(), String> {
-    match fs::write(&file_path, content) {
-        Ok(_) => Ok(()),
-        Err(e) => Err(e.to_string()),
-    }
+    // Validate path to prevent traversal attacks
+    let path = Path::new(&file_path);
+    let validated_path = security::validate_path(path, None)?;
+    
+    // Validate it's an excalidraw file
+    security::validate_excalidraw_file(&validated_path)?;
+    
+    // Validate the content before saving
+    security::validate_excalidraw_content(&content)?;
+    
+    fs::write(&validated_path, content)
+        .map_err(|e| e.to_string())?;
+    
+    Ok(())
 }
 
 #[tauri::command]
@@ -250,19 +272,16 @@ async fn create_new_file(directory: String, file_name: String) -> Result<String,
         directory, file_name
     );
 
-    // Verify the directory exists
+    // Validate and canonicalize the directory path
     let dir_path = Path::new(&directory);
-    if !dir_path.exists() {
-        eprintln!("[create_new_file] Directory does not exist: {}", directory);
-        return Err(format!("Directory does not exist: {}", directory));
-    }
-
-    if !dir_path.is_dir() {
-        eprintln!("[create_new_file] Path is not a directory: {}", directory);
+    let validated_dir = security::validate_path(dir_path, None)?;
+    
+    if !validated_dir.is_dir() {
         return Err(format!("Path is not a directory: {}", directory));
     }
 
-    let mut path = dir_path.join(&file_name);
+    // Safely join the filename to the directory
+    let mut path = security::safe_path_join(&validated_dir, &file_name)?;
     println!("[create_new_file] Initial path: {:?}", path);
 
     // Check if file already exists and suggest alternative
@@ -379,14 +398,27 @@ async fn get_preferences(app: AppHandle) -> Result<Preferences, String> {
 
 #[tauri::command]
 async fn rename_file(old_path: String, new_name: String) -> Result<String, String> {
+    // Validate the old path
     let old_path = Path::new(&old_path);
-
-    if !old_path.exists() {
+    let validated_old = security::validate_path(old_path, None)?;
+    
+    if !validated_old.exists() {
         return Err("File does not exist".to_string());
     }
+    
+    security::validate_excalidraw_file(&validated_old)?;
 
-    let parent = old_path.parent().ok_or("Invalid file path")?;
-    let new_path = parent.join(&new_name);
+    let parent = validated_old.parent().ok_or("Invalid file path")?;
+    
+    // Safely create the new path
+    let new_path = security::safe_path_join(parent, &new_name)?;
+    
+    // Ensure the new path also has .excalidraw extension
+    let new_path = if new_path.extension() != Some(std::ffi::OsStr::new("excalidraw")) {
+        new_path.with_extension("excalidraw")
+    } else {
+        new_path
+    };
 
     if new_path.exists() && new_path != old_path {
         return Err("A file with that name already exists".to_string());
@@ -458,16 +490,21 @@ async fn rename_file(old_path: String, new_name: String) -> Result<String, Strin
 
 #[tauri::command]
 async fn delete_file(file_path: String) -> Result<(), String> {
+    // Validate path to prevent traversal attacks
     let path = Path::new(&file_path);
-
-    if !path.exists() {
+    let validated_path = security::validate_path(path, None)?;
+    
+    if !validated_path.exists() {
         return Err("File does not exist".to_string());
     }
+    
+    // Ensure we're only deleting excalidraw files
+    security::validate_excalidraw_file(&validated_path)?;
 
-    match fs::remove_file(path) {
-        Ok(_) => Ok(()),
-        Err(e) => Err(e.to_string()),
-    }
+    fs::remove_file(&validated_path)
+        .map_err(|e| e.to_string())?;
+    
+    Ok(())
 }
 
 #[tauri::command]

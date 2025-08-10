@@ -5,6 +5,7 @@ type ExcalidrawElement = any
 type ExcalidrawAppState = any
 import { useStore } from '../store/useStore'
 import { setGlobalExcalidrawAPI } from '../hooks/useMenuHandler'
+import { TIMING } from '../constants'
 
 export function ExcalidrawEditor() {
   const activeFile = useStore(state => state.activeFile)
@@ -14,11 +15,10 @@ export function ExcalidrawEditor() {
   const lastSavedContentRef = useRef<string>('')
   const lastSavedElementsRef = useRef<string>('')
   const isUserChangeRef = useRef(true)
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const previousFilePathRef = useRef<string | null>(null)
   const initialLoadCompleteRef = useRef(false)
 
-  console.log('ExcalidrawEditor render - activeFile:', activeFile?.name)
 
   // Parse initial data from fileContent
   const initialData = useMemo(() => {
@@ -39,7 +39,6 @@ export function ExcalidrawEditor() {
       lastSavedContentRef.current = fileContent
       lastSavedElementsRef.current = JSON.stringify(data.elements || [])
       
-      console.log('Preparing initial data for file:', activeFile.name)
       
       return {
         elements: data.elements || [],
@@ -52,7 +51,6 @@ export function ExcalidrawEditor() {
         files: data.files,
       }
     } catch (error) {
-      console.error('Failed to parse file content:', error)
       setIsLoading(false)
       return null
     }
@@ -82,21 +80,17 @@ export function ExcalidrawEditor() {
           // to ensure all initial onChange events have fired
           setTimeout(() => {
             isUserChangeRef.current = true
-            console.log('User change detection enabled')
-          }, 300)
+          }, TIMING.USER_CHANGE_ENABLE_DELAY)
           
           // Only mark file as clean if we're still on the same file
           const store = useStore.getState()
           if (store.activeFile?.path === currentFilePath) {
-            console.log('[Loading complete] Marking file as clean:', currentFilePath)
             store.setIsDirty(false)
             store.markFileAsModified(currentFilePath, false)
             store.markTreeNodeAsModified(currentFilePath, false)
-          } else {
-            console.log('[Loading complete] File switched, not clearing dirty state')
           }
-        }, 200)
-      }, 300)
+        }, TIMING.LOADING_HIDE_DELAY)
+      }, TIMING.FILE_LOAD_DELAY)
       
       return () => clearTimeout(timer)
     }
@@ -116,7 +110,6 @@ export function ExcalidrawEditor() {
 
     // Skip if this is not a user change (initial load or programmatic update)
     if (!isUserChangeRef.current || !initialLoadCompleteRef.current) {
-      console.log('[handleChange] Skipping - initial load phase')
       // Still update our baseline during initial load
       const currentElements = JSON.stringify(elements || [])
       lastSavedElementsRef.current = currentElements
@@ -128,25 +121,18 @@ export function ExcalidrawEditor() {
     
     // If elements haven't changed from our saved baseline, skip
     if (currentElements === lastSavedElementsRef.current) {
-      console.log('[handleChange] Skipping - elements unchanged')
       return
     }
-
-    // If we're here, elements changed and it's after the initial load
-    // So this must be a user change
-    console.log('[handleChange] User made changes, updating store')
 
     // Update our baseline
     lastSavedElementsRef.current = currentElements
 
     // Immediately mark as dirty so file switch detection works
     const store = useStore.getState()
-    console.log('[handleChange] Current isDirty:', store.isDirty, 'Setting to true for:', activeFile.path)
     if (!store.isDirty) {
       store.setIsDirty(true)
       store.markFileAsModified(activeFile.path, true)
       store.markTreeNodeAsModified(activeFile.path, true)
-      console.log('[handleChange] Marked as dirty:', activeFile.name)
     }
 
     // Build the new content
@@ -188,7 +174,7 @@ export function ExcalidrawEditor() {
       if (freshStore.activeFile?.path === activeFile.path) {
         freshStore.setFileContent(newContent)
       }
-    }, 100) // 100ms debounce
+    }, TIMING.DEBOUNCE_SAVE) // Debounce save operations
   }, [activeFile])
 
   // Handle save - update our reference
@@ -203,14 +189,12 @@ export function ExcalidrawEditor() {
         } catch (e) {
           // Ignore parse errors
         }
-        console.log('Updated saved content reference after save')
       }
       
       // When switching files (activeFile changes)
       if (state.activeFile?.path !== prevState.activeFile?.path) {
         // Disable user change detection for file switch
         isUserChangeRef.current = false
-        console.log('File switch detected, resetting user change flag')
       }
     })
 
@@ -257,7 +241,6 @@ export function ExcalidrawEditor() {
         <Excalidraw
           initialData={initialData}
           excalidrawAPI={(api) => {
-            console.log('Excalidraw API initialized:', !!api)
             setExcalidrawAPI(api)
             setGlobalExcalidrawAPI(api)
           }}
