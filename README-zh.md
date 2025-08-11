@@ -2,6 +2,8 @@
 
 一款免费开源的桌面应用程序，用于管理和编辑本地 Excalidraw 文件。基于 Tauri 构建，提供原生桌面体验，同时保持熟悉的 Excalidraw 界面。
 
+![excaliapp](docs/images/excaliapp.jpg)
+
 ## 功能特性
 
 - 📁 **本地文件管理**：直接从文件系统浏览和组织您的 Excalidraw 文件
@@ -27,7 +29,7 @@
 - [Rust](https://www.rust-lang.org/)（最新稳定版）
 - 平台特定的开发工具：
   - **Windows**：Visual Studio Build Tools
-  - **macOS**：Xcode Command Line Tools  
+  - **macOS**：Xcode Command Line Tools
   - **Linux**：`build-essential`、`libwebkit2gtk-4.1-dev`、`libssl-dev`
 
 #### 构建步骤
@@ -72,14 +74,14 @@ npm run tauri build
 
 ### 键盘快捷键
 
-| 操作 | Windows/Linux | macOS |
-|------|--------------|-------|
-| 新建文件 | Ctrl+N | Cmd+N |
-| 打开目录 | Ctrl+O | Cmd+O |
-| 保存 | Ctrl+S | Cmd+S |
-| 另存为 | Ctrl+Shift+S | Cmd+Shift+S |
-| 切换侧边栏 | Ctrl+B | Cmd+B |
-| 退出 | Ctrl+Q | Cmd+Q |
+| 操作       | Windows/Linux | macOS       |
+| ---------- | ------------- | ----------- |
+| 新建文件   | Ctrl+N        | Cmd+N       |
+| 打开目录   | Ctrl+O        | Cmd+O       |
+| 保存       | Ctrl+S        | Cmd+S       |
+| 另存为     | Ctrl+Shift+S  | Cmd+Shift+S |
+| 切换侧边栏 | Ctrl+B        | Cmd+B       |
+| 退出       | Ctrl+Q        | Cmd+Q       |
 
 ### 文件操作
 
@@ -101,12 +103,12 @@ graph TB
         UI --> EX
         UI --> SM
     end
-    
+
     subgraph "Tauri 桥接层"
         IPC[IPC 命令]
         EV[事件系统]
     end
-    
+
     subgraph "后端（Rust）"
         FM[文件管理器]
         SEC[安全层]
@@ -116,7 +118,7 @@ graph TB
         FM --> SEC
         FM --> FS
     end
-    
+
     UI <--> IPC
     SM <--> IPC
     IPC <--> FM
@@ -135,7 +137,7 @@ sequenceDiagram
     participant IPC as Tauri IPC
     participant Rust as Rust 后端
     participant FS as 文件系统
-    
+
     用户->>UI: 从侧边栏选择文件
     UI->>IPC: invoke('read_file', {path})
     IPC->>Rust: read_file 命令
@@ -146,7 +148,7 @@ sequenceDiagram
     Rust-->>IPC: 返回内容
     IPC-->>UI: 文件内容
     UI->>UI: 在 Excalidraw 编辑器中加载
-    
+
     用户->>UI: 编辑图表
     UI->>UI: 自动保存计时器（30秒）
     UI->>IPC: invoke('save_file', {path, content})
