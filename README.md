@@ -2,6 +2,8 @@
 
 A free, open-source desktop application for managing and editing local Excalidraw files. Built with Tauri for a native desktop experience while maintaining the familiar Excalidraw interface. See [中文说明](README-zh.md) for Chinese users.
 
+![excaliapp](docs/images/excaliapp.jpg)
+
 ## Features
 
 - 📁 **Local File Management**: Browse and organize your Excalidraw files directly from your filesystem
