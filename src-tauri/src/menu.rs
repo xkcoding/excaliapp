@@ -90,50 +90,22 @@ fn create_recent_directories_menu<R: Runtime>(
     Ok(recent_menu)
 }
 
+
 fn create_edit_menu<R: Runtime>(
     app: &AppHandle<R>,
 ) -> Result<Submenu<R>, Box<dyn std::error::Error>> {
-    let undo = MenuItemBuilder::with_id("undo", "Undo")
-        .accelerator("CmdOrCtrl+Z")
-        .build(app)?;
-
-    #[cfg(target_os = "macos")]
-    let redo = MenuItemBuilder::with_id("redo", "Redo")
-        .accelerator("CmdOrCtrl+Shift+Z")
-        .build(app)?;
-
-    #[cfg(not(target_os = "macos"))]
-    let redo = MenuItemBuilder::with_id("redo", "Redo")
-        .accelerator("CmdOrCtrl+Y")
-        .build(app)?;
-
-    let separator = PredefinedMenuItem::separator(app)?;
-
-    let cut = MenuItemBuilder::with_id("cut", "Cut")
-        .accelerator("CmdOrCtrl+X")
-        .build(app)?;
-
-    let copy = MenuItemBuilder::with_id("copy", "Copy")
-        .accelerator("CmdOrCtrl+C")
-        .build(app)?;
-
-    let paste = MenuItemBuilder::with_id("paste", "Paste")
-        .accelerator("CmdOrCtrl+V")
-        .build(app)?;
-
-    let select_all = MenuItemBuilder::with_id("select_all", "Select All")
-        .accelerator("CmdOrCtrl+A")
-        .build(app)?;
+    // Use predefined menu items for proper system clipboard integration
+    let cut = PredefinedMenuItem::cut(app, None)?;
+    let copy = PredefinedMenuItem::copy(app, None)?;
+    let paste = PredefinedMenuItem::paste(app, None)?;
+    let select_all = PredefinedMenuItem::select_all(app, None)?;
 
     let edit_menu = SubmenuBuilder::new(app, "Edit")
         .items(&[
-            &undo,
-            &redo,
-            &separator,
             &cut,
             &copy,
             &paste,
-            &separator,
+            &PredefinedMenuItem::separator(app)?,
             &select_all,
         ])
         .build()?;
