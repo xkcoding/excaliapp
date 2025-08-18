@@ -212,6 +212,7 @@ export function ExcalidrawEditor() {
     }
   }, [activeFile?.path])
 
+
   if (!activeFile) {
     return (
       <div className="flex-1 flex items-center justify-center text-muted-foreground">

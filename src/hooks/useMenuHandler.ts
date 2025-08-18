@@ -75,30 +75,6 @@ export function useMenuHandler() {
             handleClearRecent()
             break
 
-          // Edit menu commands
-          case 'undo':
-            handleUndo()
-            break
-
-          case 'redo':
-            handleRedo()
-            break
-
-          case 'cut':
-            handleCut()
-            break
-
-          case 'copy':
-            handleCopy()
-            break
-
-          case 'paste':
-            handlePaste()
-            break
-
-          case 'select_all':
-            handleSelectAll()
-            break
 
           // View menu commands
           case 'toggle_sidebar':
@@ -213,146 +189,6 @@ export function useMenuHandler() {
     useStore.getState().setPreferences(newPrefs)
   }
 
-  // Edit menu handlers - delegate to Excalidraw
-  const handleUndo = () => {
-    // The Excalidraw component handles undo/redo internally through keyboard events
-    // We need to simulate these events on the window, not the element
-    const event = new KeyboardEvent('keydown', {
-      key: 'z',
-      code: 'KeyZ',
-      ctrlKey: !navigator.platform.includes('Mac'),
-      metaKey: navigator.platform.includes('Mac'),
-      bubbles: true,
-    })
-    window.dispatchEvent(event)
-  }
-
-  const handleRedo = () => {
-    // The Excalidraw component handles undo/redo internally through keyboard events
-    // We need to simulate these events on the window, not the element
-    const isMac = navigator.platform.includes('Mac')
-    const event = new KeyboardEvent('keydown', {
-      key: isMac ? 'z' : 'y',
-      code: isMac ? 'KeyZ' : 'KeyY',
-      ctrlKey: !isMac,
-      metaKey: isMac,
-      shiftKey: isMac,
-      bubbles: true,
-    })
-    window.dispatchEvent(event)
-  }
-
-  const handleCut = async () => {
-    try {
-      // Get selected elements from Excalidraw
-      if (globalExcalidrawAPI) {
-        const selectedElements = globalExcalidrawAPI.getSceneElements().filter((el: any) => 
-          globalExcalidrawAPI.getAppState().selectedElementIds[el.id]
-        )
-        
-        if (selectedElements.length > 0) {
-          // Copy to clipboard
-          const content = JSON.stringify(selectedElements)
-          await navigator.clipboard.writeText(content)
-          
-          // Delete selected elements
-          globalExcalidrawAPI.deleteElements(selectedElements)
-        }
-      } else {
-        // Fallback for text input fields
-        const activeElement = document.activeElement as HTMLInputElement | HTMLTextAreaElement
-        if (activeElement && ('select' in activeElement)) {
-          const text = activeElement.value.substring(
-            activeElement.selectionStart || 0,
-            activeElement.selectionEnd || 0
-          )
-          await navigator.clipboard.writeText(text)
-          
-          // Remove selected text
-          const start = activeElement.selectionStart || 0
-          const end = activeElement.selectionEnd || 0
-          activeElement.value = activeElement.value.substring(0, start) + 
-                                activeElement.value.substring(end)
-          activeElement.selectionStart = activeElement.selectionEnd = start
-        }
-      }
-    } catch (err) {
-      console.error('Failed to cut:', err)
-    }
-  }
-
-  const handleCopy = async () => {
-    try {
-      // Get selected elements from Excalidraw
-      if (globalExcalidrawAPI) {
-        const selectedElements = globalExcalidrawAPI.getSceneElements().filter((el: any) => 
-          globalExcalidrawAPI.getAppState().selectedElementIds[el.id]
-        )
-        
-        if (selectedElements.length > 0) {
-          const content = JSON.stringify(selectedElements)
-          await navigator.clipboard.writeText(content)
-        }
-      } else {
-        // Fallback for text input fields
-        const activeElement = document.activeElement as HTMLInputElement | HTMLTextAreaElement
-        if (activeElement && ('select' in activeElement)) {
-          const text = activeElement.value.substring(
-            activeElement.selectionStart || 0,
-            activeElement.selectionEnd || 0
-          )
-          await navigator.clipboard.writeText(text)
-        }
-      }
-    } catch (err) {
-      console.error('Failed to copy:', err)
-    }
-  }
-
-  const handlePaste = async () => {
-    try {
-      const text = await navigator.clipboard.readText()
-      
-      if (globalExcalidrawAPI) {
-        // Try to parse as Excalidraw elements
-        try {
-          const elements = JSON.parse(text)
-          if (Array.isArray(elements)) {
-            // Add elements to the scene
-            globalExcalidrawAPI.addElements(elements)
-          }
-        } catch {
-          // If not valid JSON, let Excalidraw handle it as text
-          const actionManager = globalExcalidrawAPI.actionManager
-          if (actionManager) {
-            actionManager.executeAction('paste')
-          }
-        }
-      } else {
-        // Fallback for text input fields
-        const activeElement = document.activeElement as HTMLInputElement | HTMLTextAreaElement
-        if (activeElement && ('value' in activeElement)) {
-          const start = activeElement.selectionStart || 0
-          const end = activeElement.selectionEnd || 0
-          activeElement.value = activeElement.value.substring(0, start) + 
-                                text + 
-                                activeElement.value.substring(end)
-          activeElement.selectionStart = activeElement.selectionEnd = start + text.length
-        }
-      }
-    } catch (err) {
-      console.error('Failed to paste:', err)
-    }
-  }
-
-  const handleSelectAll = () => {
-    if (globalExcalidrawAPI) {
-      const actionManager = globalExcalidrawAPI.actionManager
-      if (actionManager) {
-        actionManager.executeAction('selectAll')
-      }
-    }
-  }
 
   // View menu handlers
   const handleZoomIn = () => {
@@ -444,14 +280,6 @@ File:
   Save As: Cmd/Ctrl+Shift+S
   Quit: Cmd/Ctrl+Q
 
-Edit:
-  Undo: Cmd/Ctrl+Z
-  Redo: Cmd/Ctrl+Y (Cmd+Shift+Z on Mac)
-  Cut: Cmd/Ctrl+X
-  Copy: Cmd/Ctrl+C
-  Paste: Cmd/Ctrl+V
-  Select All: Cmd/Ctrl+A
-
 View:
   Toggle Sidebar: Cmd/Ctrl+B
   Zoom In: Cmd/Ctrl++
@@ -462,6 +290,8 @@ View:
 Window:
   Minimize: Cmd/Ctrl+M
   Close Window: Cmd/Ctrl+W
+
+Note: All editing operations (copy, paste, undo, etc.) are handled natively by Excalidraw.
     `
     alert(shortcuts)
   }

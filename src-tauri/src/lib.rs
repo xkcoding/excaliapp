@@ -523,6 +523,12 @@ async fn save_preferences(app: AppHandle, preferences: Preferences) -> Result<()
 }
 
 #[tauri::command]
+async fn force_close_app(app: AppHandle) -> Result<(), String> {
+    app.exit(0);
+    Ok(())
+}
+
+#[tauri::command]
 async fn watch_directory(
     app: AppHandle,
     directory: String,
@@ -580,6 +586,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
             app.manage(AppState {
                 current_directory: Mutex::new(None),
@@ -607,6 +614,19 @@ pub fn run() {
                 }
             });
 
+            // Add window close handler
+            let window = app.get_webview_window("main").unwrap();
+            let window_clone = window.clone();
+            window.on_window_event(move |event| {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    // Prevent default close
+                    api.prevent_close();
+                    
+                    // Emit event to frontend to check for unsaved changes
+                    let _ = window_clone.emit("check-unsaved-before-close", ());
+                }
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -622,6 +642,7 @@ pub fn run() {
             get_preferences,
             save_preferences,
             watch_directory,
+            force_close_app,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

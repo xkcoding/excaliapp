@@ -17,6 +17,12 @@ export function useKeyboardShortcuts() {
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
       const modKey = isMac ? e.metaKey : e.ctrlKey
 
+      // Don't handle any events if clipboard operations are being used
+      // Let Excalidraw handle all clipboard operations natively
+      if (modKey && (e.key === 'c' || e.key === 'v' || e.key === 'x' || e.key === 'a')) {
+        return
+      }
+
       // Cmd/Ctrl + B: Toggle sidebar
       if (modKey && e.key === 'b') {
         e.preventDefault()
@@ -79,7 +85,8 @@ export function useKeyboardShortcuts() {
       }
     }
 
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    // Use non-capturing phase to let Excalidraw handle events first
+    window.addEventListener('keydown', handleKeyDown, false)
+    return () => window.removeEventListener('keydown', handleKeyDown, false)
   }, [toggleSidebar, saveCurrentFile, files, activeFile, loadFile, createNewFile])
 }
