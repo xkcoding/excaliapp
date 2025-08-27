@@ -3,13 +3,14 @@ name: 发布跨平台构建
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'v*'
   workflow_dispatch:
     inputs:
       version:
         description: '版本号 (例如: v1.0.0)'
         required: true
         default: 'v0.1.0'
+        type: string
 
 env:
   CARGO_INCREMENTAL: 0
