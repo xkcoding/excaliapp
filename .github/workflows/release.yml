@@ -99,13 +99,7 @@ jobs:
           cache: 'npm'
           
       - name: 安装前端依赖
-        run: |
-          # 确保 package-lock.json 存在
-          if [ ! -f package-lock.json ]; then
-            echo "package-lock.json 不存在，生成中..."
-            npm install
-          fi
-          npm ci
+        run: npm ci
         
       - name: 安装 Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
