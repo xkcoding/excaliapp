@@ -90,7 +90,8 @@ jobs:
             libssl-dev \
             pkg-config \
             libglib2.0-dev \
-            libgobject-introspection-1.0-dev
+            libgobject-introspection-1.0-dev \
+            libgirepository1.0-dev
             
       - name: 运行前端测试
         run: npm test
@@ -140,7 +141,8 @@ jobs:
             libssl-dev \
             pkg-config \
             libglib2.0-dev \
-            libgobject-introspection-1.0-dev
+            libgobject-introspection-1.0-dev \
+            libgirepository1.0-dev
             
       - name: 构建前端
         run: npm run build
