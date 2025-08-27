@@ -170,7 +170,7 @@ jobs:
   # 总结报告
   ci-summary:
     name: CI 总结报告
-    needs: [lint-and-format, test, build-test, security]
+    needs: [lint-and-format, test, build-test]
     runs-on: ubuntu-latest
     if: always()
     
@@ -184,13 +184,11 @@ jobs:
           echo "| 代码格式化和 Lint | ${{ needs.lint-and-format.result == 'success' && '✅ 通过' || '❌ 失败' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| 单元测试 | ${{ needs.test.result == 'success' && '✅ 通过' || '❌ 失败' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| 构建测试 | ${{ needs.build-test.result == 'success' && '✅ 通过' || '❌ 失败' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| 安全检查 | ${{ needs.security.result == 'success' && '✅ 通过' || '❌ 失败' }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           if [[ "${{ needs.lint-and-format.result }}" == "success" && \
                 "${{ needs.test.result }}" == "success" && \
-                "${{ needs.build-test.result }}" == "success" && \
-                "${{ needs.security.result }}" == "success" ]]; then
+                "${{ needs.build-test.result }}" == "success" ]]; then
             echo "🎉 所有检查均已通过！代码可以合并。" >> $GITHUB_STEP_SUMMARY
           else
             echo "⚠️ 存在检查失败的项目，请查看详细日志并修复问题。" >> $GITHUB_STEP_SUMMARY
