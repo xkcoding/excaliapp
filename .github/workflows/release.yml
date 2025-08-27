@@ -72,20 +72,6 @@ jobs:
             platform: macos-arm64
             arch: arm64
             ext: ''
-            
-          # Linux x64
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            platform: linux-x64
-            arch: x64
-            ext: ''
-            
-          # Linux ARM64
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            platform: linux-arm64
-            arch: arm64
-            ext: ''
 
     runs-on: ${{ matrix.os }}
     
@@ -115,42 +101,6 @@ jobs:
         run: |
           choco install visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
           
-      # Linux 特定设置
-      - name: 安装 Linux 依赖 (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt update
-          sudo apt install -y \
-            libwebkit2gtk-4.1-dev \
-            libappindicator3-dev \
-            librsvg2-dev \
-            patchelf \
-            libssl-dev \
-            pkg-config \
-            libglib2.0-dev \
-            libgirepository1.0-dev
-            
-      # ARM64 交叉编译设置 (Linux)
-      - name: 安装 ARM64 交叉编译工具 (Linux ARM64)
-        if: matrix.os == 'ubuntu-latest' && matrix.target == 'aarch64-unknown-linux-gnu'
-        run: |
-          # 添加 ARM64 架构支持
-          sudo dpkg --add-architecture arm64
-          sudo apt update
-          
-          # 交叉编译工具链
-          sudo apt install -y gcc-aarch64-linux-gnu
-          echo "CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
-          echo "CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++" >> $GITHUB_ENV
-          
-          # ARM64 系统库依赖
-          sudo apt install -y \
-            libwebkit2gtk-4.1-dev:arm64 \
-            libappindicator3-dev:arm64 \
-            librsvg2-dev:arm64 \
-            libssl-dev:arm64 \
-            libglib2.0-dev:arm64 \
-            libgirepository1.0-dev:arm64
           
       # macOS 特定设置
       - name: 安装 macOS 依赖 (macOS)
@@ -220,32 +170,6 @@ jobs:
             cp "$exe_path" "dist/excaliapp-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}"
           fi
         
-      - name: 收集构建产物 (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          mkdir -p dist
-          bundle_path="src-tauri/target/${{ matrix.target }}/release/bundle"
-          
-          # AppImage
-          if [ -d "$bundle_path/appimage" ]; then
-            find "$bundle_path/appimage" -name "*.AppImage" -exec cp {} "dist/excaliapp-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}.AppImage" \;
-          fi
-          
-          # DEB 包
-          if [ -d "$bundle_path/deb" ]; then
-            find "$bundle_path/deb" -name "*.deb" -exec cp {} "dist/excaliapp-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}.deb" \;
-          fi
-          
-          # RPM 包
-          if [ -d "$bundle_path/rpm" ]; then
-            find "$bundle_path/rpm" -name "*.rpm" -exec cp {} "dist/excaliapp-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}.rpm" \;
-          fi
-          
-          # 可执行文件
-          exe_path="src-tauri/target/${{ matrix.target }}/release/excaliapp"
-          if [ -f "$exe_path" ]; then
-            cp "$exe_path" "dist/excaliapp-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}"
-          fi
           
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
@@ -297,10 +221,6 @@ jobs:
                 echo "| macOS | Intel | [\`$filename\`]($file) |" >> CHANGELOG.md
               elif [[ "$filename" == *"macos-arm64"* ]]; then
                 echo "| macOS | Apple Silicon | [\`$filename\`]($file) |" >> CHANGELOG.md
-              elif [[ "$filename" == *"linux-x64"* ]]; then
-                echo "| Linux | x64 | [\`$filename\`]($file) |" >> CHANGELOG.md
-              elif [[ "$filename" == *"linux-arm64"* ]]; then
-                echo "| Linux | ARM64 | [\`$filename\`]($file) |" >> CHANGELOG.md
               fi
             fi
           done
@@ -308,7 +228,7 @@ jobs:
           echo "" >> CHANGELOG.md
           echo "### ✨ 特性" >> CHANGELOG.md
           echo "- 🎨 全新简洁现代的应用图标设计" >> CHANGELOG.md
-          echo "- 📱 支持跨平台：Windows、macOS、Linux" >> CHANGELOG.md
+          echo "- 📱 支持跨平台：Windows、macOS" >> CHANGELOG.md
           echo "- 🏗️ 支持多架构：x64、ARM64" >> CHANGELOG.md
           echo "- 🔧 基于 Tauri 2.0 构建，性能优异" >> CHANGELOG.md
           echo "- 🎯 集成 Excalidraw，本地化绘图体验" >> CHANGELOG.md
@@ -324,10 +244,6 @@ jobs:
           echo "- Intel Mac 选择 \`macos-x64\`" >> CHANGELOG.md
           echo "- Apple Silicon Mac 选择 \`macos-arm64\`" >> CHANGELOG.md
           echo "" >> CHANGELOG.md
-          echo "**Linux：**" >> CHANGELOG.md
-          echo "- Ubuntu/Debian: 下载 \`.deb\` 文件" >> CHANGELOG.md
-          echo "- RHEL/CentOS: 下载 \`.rpm\` 文件" >> CHANGELOG.md
-          echo "- 通用: 下载 \`.AppImage\` 文件" >> CHANGELOG.md
           
           echo "changelog<<EOF" >> $GITHUB_OUTPUT
           cat CHANGELOG.md >> $GITHUB_OUTPUT

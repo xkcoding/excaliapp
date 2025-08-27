@@ -14,7 +14,7 @@ jobs:
   # 代码质量检查
   lint-and-format:
     name: 代码格式化和 Lint 检查
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     
     steps:
       - name: 检出代码
@@ -36,19 +36,10 @@ jobs:
           components: rustfmt, clippy
           cache: true
           
-      # Linux 系统依赖 (Clippy 需要)
-      - name: 安装 Linux 依赖
+      # Windows 构建工具
+      - name: 安装 Windows 构建工具
         run: |
-          sudo apt update
-          sudo apt install -y \
-            libwebkit2gtk-4.1-dev \
-            libappindicator3-dev \
-            librsvg2-dev \
-            patchelf \
-            libssl-dev \
-            pkg-config \
-            libglib2.0-dev \
-            libgirepository1.0-dev
+          choco install visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
           
       - name: 前端 Lint 检查
         run: |
@@ -68,7 +59,7 @@ jobs:
     name: 运行测试
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [windows-latest, macos-latest]
         
     runs-on: ${{ matrix.os }}
     
@@ -91,20 +82,11 @@ jobs:
           toolchain: stable
           cache: true
           
-      # Linux 特定依赖
-      - name: 安装 Linux 依赖 (Linux)
-        if: matrix.os == 'ubuntu-latest'
+      # Windows 特定依赖
+      - name: 安装 Windows 构建工具 (Windows)
+        if: matrix.os == 'windows-latest'
         run: |
-          sudo apt update
-          sudo apt install -y \
-            libwebkit2gtk-4.1-dev \
-            libappindicator3-dev \
-            librsvg2-dev \
-            patchelf \
-            libssl-dev \
-            pkg-config \
-            libglib2.0-dev \
-            libgirepository1.0-dev
+          choco install visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
             
       - name: 运行前端测试
         run: npm test
@@ -118,7 +100,7 @@ jobs:
     name: 构建测试
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [windows-latest, macos-latest]
         
     runs-on: ${{ matrix.os }}
     
@@ -141,20 +123,11 @@ jobs:
           toolchain: stable
           cache: true
           
-      # Linux 特定依赖
-      - name: 安装 Linux 依赖 (Linux)
-        if: matrix.os == 'ubuntu-latest'
+      # Windows 特定依赖
+      - name: 安装 Windows 构建工具 (Windows)
+        if: matrix.os == 'windows-latest'
         run: |
-          sudo apt update
-          sudo apt install -y \
-            libwebkit2gtk-4.1-dev \
-            libappindicator3-dev \
-            librsvg2-dev \
-            patchelf \
-            libssl-dev \
-            pkg-config \
-            libglib2.0-dev \
-            libgirepository1.0-dev
+          choco install visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
             
       - name: 构建前端
         run: npm run build
