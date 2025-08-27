@@ -36,6 +36,20 @@ jobs:
           components: rustfmt, clippy
           cache: true
           
+      # Linux 系统依赖 (Clippy 需要)
+      - name: 安装 Linux 依赖
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev \
+            pkg-config \
+            libglib2.0-dev \
+            libgirepository1.0-dev
+          
       - name: 前端 Lint 检查
         run: |
           # TypeScript 类型检查
