@@ -133,9 +133,23 @@ jobs:
       - name: 安装 ARM64 交叉编译工具 (Linux ARM64)
         if: matrix.os == 'ubuntu-latest' && matrix.target == 'aarch64-unknown-linux-gnu'
         run: |
+          # 添加 ARM64 架构支持
+          sudo dpkg --add-architecture arm64
+          sudo apt update
+          
+          # 交叉编译工具链
           sudo apt install -y gcc-aarch64-linux-gnu
           echo "CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
           echo "CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++" >> $GITHUB_ENV
+          
+          # ARM64 系统库依赖
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev:arm64 \
+            libappindicator3-dev:arm64 \
+            librsvg2-dev:arm64 \
+            libssl-dev:arm64 \
+            libglib2.0-dev:arm64 \
+            libgirepository1.0-dev:arm64
           
       # macOS 特定设置
       - name: 安装 macOS 依赖 (macOS)
