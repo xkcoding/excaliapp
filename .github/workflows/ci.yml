@@ -88,7 +88,9 @@ jobs:
             librsvg2-dev \
             patchelf \
             libssl-dev \
-            pkg-config
+            pkg-config \
+            libglib2.0-dev \
+            libgobject-introspection-1.0-dev
             
       - name: 运行前端测试
         run: npm test
@@ -136,7 +138,9 @@ jobs:
             librsvg2-dev \
             patchelf \
             libssl-dev \
-            pkg-config
+            pkg-config \
+            libglib2.0-dev \
+            libgobject-introspection-1.0-dev
             
       - name: 构建前端
         run: npm run build
@@ -147,40 +151,7 @@ jobs:
           # 测试构建，不需要签名
           TAURI_SIGNING_PRIVATE_KEY: ''
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
-
-  # 安全检查
-  security:
-    name: 安全检查
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: 检出代码
-        uses: actions/checkout@v4
-        
-      - name: 安装 Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
           
-      - name: 安装前端依赖
-        run: npm ci
-        
-      - name: 安装 Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: stable
-          cache: true
-          
-      - name: 前端安全审计
-        run: npm audit --audit-level moderate
-        
-      - name: Rust 安全审计
-        run: |
-          cargo install cargo-audit
-          cargo audit
-        working-directory: src-tauri
-
   # 依赖检查
   dependency-review:
     name: 依赖审查

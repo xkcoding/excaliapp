@@ -125,7 +125,9 @@ jobs:
             librsvg2-dev \
             patchelf \
             libssl-dev \
-            pkg-config
+            pkg-config \
+            libglib2.0-dev \
+            libgobject-introspection-1.0-dev
             
       # ARM64 交叉编译设置 (Linux)
       - name: 安装 ARM64 交叉编译工具 (Linux ARM64)
