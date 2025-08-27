@@ -19,7 +19,36 @@
 
 ### 下载预构建版本
 
-*即将推出 - 预构建的二进制文件将在 Releases 部分提供*
+从 [Releases](https://github.com/xkcoding/excaliapp/releases) 页面下载适合您平台的最新版本。
+
+#### 支持的平台
+
+| 平台 | 架构 | 下载格式 |
+|------|------|----------|
+| **Windows** | x64 | `.msi` 安装包或 `-setup.exe` |
+| **Windows** | ARM64 | `.msi` 安装包或 `-setup.exe` |
+| **macOS** | Intel (x64) | `.dmg` 安装包 |
+| **macOS** | Apple Silicon (ARM64) | `.dmg` 安装包 |
+| **Linux** | x64 | `.AppImage`、`.deb` 或 `.rpm` |
+| **Linux** | ARM64 | `.AppImage`、`.deb` 或 `.rpm` |
+
+#### 安装说明
+
+**Windows：**
+- 下载 `.msi` 文件进行标准 Windows 安装
+- 或下载 `-setup.exe` 获得自定义安装体验
+- Intel/AMD 处理器选择 `windows-x64`，ARM 处理器选择 `windows-arm64`
+
+**macOS：**
+- 下载 `.dmg` 文件并将应用拖拽到应用程序文件夹
+- Intel Mac（2006-2020年）选择 `macos-x64`，Apple Silicon Mac（M1/M2/M3）选择 `macos-arm64`
+
+**Linux：**
+- **AppImage**：通用格式，下载后直接运行
+- **Ubuntu/Debian**：下载 `.deb` 文件，使用 `sudo dpkg -i 文件名.deb` 安装
+- **RHEL/CentOS/Fedora**：下载 `.rpm` 文件，使用 `sudo rpm -i 文件名.rpm` 安装
+
+所有版本都通过 GitHub Actions 自动构建和测试，确保质量。
 
 ### 从源代码构建
 

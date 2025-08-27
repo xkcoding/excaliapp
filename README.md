@@ -19,7 +19,36 @@ A free, open-source desktop application for managing and editing local Excalidra
 
 ### Download Pre-built Binaries
 
-*Coming soon - Pre-built binaries will be available in the Releases section*
+Download the latest version for your platform from the [Releases](https://github.com/xkcoding/excaliapp/releases) page.
+
+#### Supported Platforms
+
+| Platform | Architecture | Download |
+|----------|-------------|----------|
+| **Windows** | x64 | `.msi` installer or `-setup.exe` |
+| **Windows** | ARM64 | `.msi` installer or `-setup.exe` |
+| **macOS** | Intel (x64) | `.dmg` package |
+| **macOS** | Apple Silicon (ARM64) | `.dmg` package |
+| **Linux** | x64 | `.AppImage`, `.deb`, or `.rpm` |
+| **Linux** | ARM64 | `.AppImage`, `.deb`, or `.rpm` |
+
+#### Installation Instructions
+
+**Windows:**
+- Download the `.msi` file for a standard Windows installer
+- Or download the `-setup.exe` for a custom installer experience
+- Choose `windows-x64` for Intel/AMD processors or `windows-arm64` for ARM processors
+
+**macOS:**
+- Download the `.dmg` file and drag the app to your Applications folder
+- Choose `macos-x64` for Intel Macs (2006-2020) or `macos-arm64` for Apple Silicon Macs (M1/M2/M3)
+
+**Linux:**
+- **AppImage**: Universal format, just download and run
+- **Ubuntu/Debian**: Download the `.deb` file and install with `sudo dpkg -i filename.deb`
+- **RHEL/CentOS/Fedora**: Download the `.rpm` file and install with `sudo rpm -i filename.rpm`
+
+All releases are automatically built and tested using GitHub Actions for quality assurance.
 
 ### Build from Source
 
