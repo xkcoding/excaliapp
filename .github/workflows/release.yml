@@ -163,7 +163,7 @@ jobs:
           # MSI 安装包
           if (Test-Path "$bundlePath/msi") {
             Get-ChildItem "$bundlePath/msi/*.msi" | ForEach-Object {
-              $newName = "OwnExcaliDesk-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}.msi"
+              $newName = "excaliapp-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}.msi"
               Copy-Item $_.FullName "dist/$newName"
             }
           }
@@ -171,7 +171,7 @@ jobs:
           # NSIS 安装包
           if (Test-Path "$bundlePath/nsis") {
             Get-ChildItem "$bundlePath/nsis/*-setup.exe" | ForEach-Object {
-              $newName = "OwnExcaliDesk-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}-setup.exe"
+              $newName = "excaliapp-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}-setup.exe"
               Copy-Item $_.FullName "dist/$newName"
             }
           }
@@ -179,7 +179,7 @@ jobs:
           # 可执行文件
           $exePath = "src-tauri/target/${{ matrix.target }}/release/excaliapp.exe"
           if (Test-Path $exePath) {
-            Copy-Item $exePath "dist/OwnExcaliDesk-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}.exe"
+            Copy-Item $exePath "dist/excaliapp-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}.exe"
           }
         shell: powershell
         
@@ -191,18 +191,18 @@ jobs:
           
           # DMG 安装包
           if [ -d "$bundle_path/dmg" ]; then
-            find "$bundle_path/dmg" -name "*.dmg" -exec cp {} "dist/OwnExcaliDesk-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}.dmg" \;
+            find "$bundle_path/dmg" -name "*.dmg" -exec cp {} "dist/excaliapp-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}.dmg" \;
           fi
           
           # App 包
           if [ -d "$bundle_path/macos" ]; then
-            find "$bundle_path/macos" -name "*.app" -exec tar -czf "dist/OwnExcaliDesk-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}.app.tar.gz" {} \;
+            find "$bundle_path/macos" -name "*.app" -exec tar -czf "dist/excaliapp-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}.app.tar.gz" {} \;
           fi
           
           # 可执行文件
           exe_path="src-tauri/target/${{ matrix.target }}/release/excaliapp"
           if [ -f "$exe_path" ]; then
-            cp "$exe_path" "dist/OwnExcaliDesk-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}"
+            cp "$exe_path" "dist/excaliapp-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}"
           fi
         
       - name: 收集构建产物 (Linux)
@@ -213,23 +213,23 @@ jobs:
           
           # AppImage
           if [ -d "$bundle_path/appimage" ]; then
-            find "$bundle_path/appimage" -name "*.AppImage" -exec cp {} "dist/OwnExcaliDesk-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}.AppImage" \;
+            find "$bundle_path/appimage" -name "*.AppImage" -exec cp {} "dist/excaliapp-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}.AppImage" \;
           fi
           
           # DEB 包
           if [ -d "$bundle_path/deb" ]; then
-            find "$bundle_path/deb" -name "*.deb" -exec cp {} "dist/OwnExcaliDesk-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}.deb" \;
+            find "$bundle_path/deb" -name "*.deb" -exec cp {} "dist/excaliapp-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}.deb" \;
           fi
           
           # RPM 包
           if [ -d "$bundle_path/rpm" ]; then
-            find "$bundle_path/rpm" -name "*.rpm" -exec cp {} "dist/OwnExcaliDesk-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}.rpm" \;
+            find "$bundle_path/rpm" -name "*.rpm" -exec cp {} "dist/excaliapp-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}.rpm" \;
           fi
           
           # 可执行文件
           exe_path="src-tauri/target/${{ matrix.target }}/release/excaliapp"
           if [ -f "$exe_path" ]; then
-            cp "$exe_path" "dist/OwnExcaliDesk-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}"
+            cp "$exe_path" "dist/excaliapp-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}"
           fi
           
       - name: 上传构建产物
@@ -264,7 +264,7 @@ jobs:
         id: changelog
         run: |
           VERSION="${{ needs.get-version.outputs.version }}"
-          echo "## 🚀 OwnExcaliDesk ${VERSION} 发布" > CHANGELOG.md
+          echo "## 🚀 excaliapp ${VERSION} 发布" > CHANGELOG.md
           echo "" >> CHANGELOG.md
           echo "### 📦 下载" >> CHANGELOG.md
           echo "" >> CHANGELOG.md
@@ -322,7 +322,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.get-version.outputs.version }}
-          name: OwnExcaliDesk ${{ needs.get-version.outputs.version }}
+          name: excaliapp ${{ needs.get-version.outputs.version }}
           body: ${{ steps.changelog.outputs.changelog }}
           files: release/*
           prerelease: ${{ needs.get-version.outputs.prerelease }}
