@@ -205,17 +205,16 @@ async fn read_file(file_path: String) -> Result<String, String> {
     // Validate path to prevent traversal attacks
     let path = Path::new(&file_path);
     let validated_path = security::validate_path(path, None)?;
-    
+
     // Validate it's an excalidraw file
     security::validate_excalidraw_file(&validated_path)?;
-    
+
     // Read and validate content
-    let content = fs::read_to_string(&validated_path)
-        .map_err(|e| e.to_string())?;
-    
+    let content = fs::read_to_string(&validated_path).map_err(|e| e.to_string())?;
+
     // Validate the content is valid Excalidraw JSON
     security::validate_excalidraw_content(&content)?;
-    
+
     Ok(content)
 }
 
@@ -224,16 +223,15 @@ async fn save_file(file_path: String, content: String) -> Result<(), String> {
     // Validate path to prevent traversal attacks
     let path = Path::new(&file_path);
     let validated_path = security::validate_path(path, None)?;
-    
+
     // Validate it's an excalidraw file
     security::validate_excalidraw_file(&validated_path)?;
-    
+
     // Validate the content before saving
     security::validate_excalidraw_content(&content)?;
-    
-    fs::write(&validated_path, content)
-        .map_err(|e| e.to_string())?;
-    
+
+    fs::write(&validated_path, content).map_err(|e| e.to_string())?;
+
     Ok(())
 }
 
@@ -275,7 +273,7 @@ async fn create_new_file(directory: String, file_name: String) -> Result<String,
     // Validate and canonicalize the directory path
     let dir_path = Path::new(&directory);
     let validated_dir = security::validate_path(dir_path, None)?;
-    
+
     if !validated_dir.is_dir() {
         return Err(format!("Path is not a directory: {}", directory));
     }
@@ -401,18 +399,18 @@ async fn rename_file(old_path: String, new_name: String) -> Result<String, Strin
     // Validate the old path
     let old_path = Path::new(&old_path);
     let validated_old = security::validate_path(old_path, None)?;
-    
+
     if !validated_old.exists() {
         return Err("File does not exist".to_string());
     }
-    
+
     security::validate_excalidraw_file(&validated_old)?;
 
     let parent = validated_old.parent().ok_or("Invalid file path")?;
-    
+
     // Safely create the new path
     let new_path = security::safe_path_join(parent, &new_name)?;
-    
+
     // Ensure the new path also has .excalidraw extension
     let new_path = if new_path.extension() != Some(std::ffi::OsStr::new("excalidraw")) {
         new_path.with_extension("excalidraw")
@@ -493,17 +491,16 @@ async fn delete_file(file_path: String) -> Result<(), String> {
     // Validate path to prevent traversal attacks
     let path = Path::new(&file_path);
     let validated_path = security::validate_path(path, None)?;
-    
+
     if !validated_path.exists() {
         return Err("File does not exist".to_string());
     }
-    
+
     // Ensure we're only deleting excalidraw files
     security::validate_excalidraw_file(&validated_path)?;
 
-    fs::remove_file(&validated_path)
-        .map_err(|e| e.to_string())?;
-    
+    fs::remove_file(&validated_path).map_err(|e| e.to_string())?;
+
     Ok(())
 }
 
@@ -552,27 +549,29 @@ async fn watch_directory(
         .map_err(|e| e.to_string())?;
 
     // Spawn a thread to handle file system events
-    std::thread::spawn(move || loop {
-        match rx.recv() {
-            Ok(Ok(Event {
-                kind: EventKind::Create(_) | EventKind::Remove(_) | EventKind::Modify(_),
-                paths,
-                ..
-            })) => {
-                for path in paths {
-                    if let Some(extension) = path.extension() {
-                        if extension == "excalidraw" {
-                            let _ = app_handle.emit("file-system-change", &path);
+    std::thread::spawn(move || {
+        loop {
+            match rx.recv() {
+                Ok(Ok(Event {
+                    kind: EventKind::Create(_) | EventKind::Remove(_) | EventKind::Modify(_),
+                    paths,
+                    ..
+                })) => {
+                    for path in paths {
+                        if let Some(extension) = path.extension() {
+                            if extension == "excalidraw" {
+                                let _ = app_handle.emit("file-system-change", &path);
+                            }
                         }
                     }
                 }
+                Ok(Err(e)) => eprintln!("Watch error: {:?}", e),
+                Err(e) => {
+                    eprintln!("Watch channel error: {:?}", e);
+                    break;
+                }
+                _ => {}
             }
-            Ok(Err(e)) => eprintln!("Watch error: {:?}", e),
-            Err(e) => {
-                eprintln!("Watch channel error: {:?}", e);
-                break;
-            }
-            _ => {}
         }
     });
 
@@ -621,7 +620,7 @@ pub fn run() {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                     // Prevent default close
                     api.prevent_close();
-                    
+
                     // Emit event to frontend to check for unsaved changes
                     let _ = window_clone.emit("check-unsaved-before-close", ());
                 }
