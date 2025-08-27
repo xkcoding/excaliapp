@@ -1,0 +1,342 @@
+name: 发布跨平台构建
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号 (例如: v1.0.0)'
+        required: true
+        default: 'v0.1.0'
+
+env:
+  CARGO_INCREMENTAL: 0
+  RUST_BACKTRACE: short
+
+jobs:
+  # 获取版本信息
+  get-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - name: 获取版本号
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/}"
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          if [[ "$VERSION" == *"-"* ]]; then
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
+  # 构建跨平台版本
+  build:
+    needs: get-version
+    strategy:
+      matrix:
+        include:
+          # Windows x64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            platform: windows-x64
+            arch: x64
+            ext: .exe
+            
+          # Windows ARM64
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+            platform: windows-arm64
+            arch: arm64
+            ext: .exe
+            
+          # macOS Intel
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            platform: macos-x64
+            arch: x64
+            ext: ''
+            
+          # macOS Apple Silicon
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            platform: macos-arm64
+            arch: arm64
+            ext: ''
+            
+          # Linux x64
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            platform: linux-x64
+            arch: x64
+            ext: ''
+            
+          # Linux ARM64
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            platform: linux-arm64
+            arch: arm64
+            ext: ''
+
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          
+      - name: 安装前端依赖
+        run: npm ci
+        
+      - name: 安装 Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+          cache: true
+          
+      # Windows 特定设置
+      - name: 安装 Windows 构建工具 (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          choco install visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+          
+      # Linux 特定设置
+      - name: 安装 Linux 依赖 (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev \
+            pkg-config
+            
+      # ARM64 交叉编译设置 (Linux)
+      - name: 安装 ARM64 交叉编译工具 (Linux ARM64)
+        if: matrix.os == 'ubuntu-latest' && matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt install -y gcc-aarch64-linux-gnu
+          echo "CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++" >> $GITHUB_ENV
+          
+      # macOS 特定设置
+      - name: 安装 macOS 依赖 (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          # 确保 Xcode 命令行工具已安装
+          xcode-select --install || true
+          
+      - name: 构建前端
+        run: npm run build
+        
+      - name: 构建 Tauri 应用
+        run: npm run tauri build -- --target ${{ matrix.target }}
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          
+      # 收集构建产物
+      - name: 收集构建产物 (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          mkdir -p dist
+          $bundlePath = "src-tauri/target/${{ matrix.target }}/release/bundle"
+          
+          # MSI 安装包
+          if (Test-Path "$bundlePath/msi") {
+            Get-ChildItem "$bundlePath/msi/*.msi" | ForEach-Object {
+              $newName = "OwnExcaliDesk-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}.msi"
+              Copy-Item $_.FullName "dist/$newName"
+            }
+          }
+          
+          # NSIS 安装包
+          if (Test-Path "$bundlePath/nsis") {
+            Get-ChildItem "$bundlePath/nsis/*-setup.exe" | ForEach-Object {
+              $newName = "OwnExcaliDesk-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}-setup.exe"
+              Copy-Item $_.FullName "dist/$newName"
+            }
+          }
+          
+          # 可执行文件
+          $exePath = "src-tauri/target/${{ matrix.target }}/release/excaliapp.exe"
+          if (Test-Path $exePath) {
+            Copy-Item $exePath "dist/OwnExcaliDesk-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}.exe"
+          }
+        shell: powershell
+        
+      - name: 收集构建产物 (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          mkdir -p dist
+          bundle_path="src-tauri/target/${{ matrix.target }}/release/bundle"
+          
+          # DMG 安装包
+          if [ -d "$bundle_path/dmg" ]; then
+            find "$bundle_path/dmg" -name "*.dmg" -exec cp {} "dist/OwnExcaliDesk-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}.dmg" \;
+          fi
+          
+          # App 包
+          if [ -d "$bundle_path/macos" ]; then
+            find "$bundle_path/macos" -name "*.app" -exec tar -czf "dist/OwnExcaliDesk-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}.app.tar.gz" {} \;
+          fi
+          
+          # 可执行文件
+          exe_path="src-tauri/target/${{ matrix.target }}/release/excaliapp"
+          if [ -f "$exe_path" ]; then
+            cp "$exe_path" "dist/OwnExcaliDesk-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}"
+          fi
+        
+      - name: 收集构建产物 (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          mkdir -p dist
+          bundle_path="src-tauri/target/${{ matrix.target }}/release/bundle"
+          
+          # AppImage
+          if [ -d "$bundle_path/appimage" ]; then
+            find "$bundle_path/appimage" -name "*.AppImage" -exec cp {} "dist/OwnExcaliDesk-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}.AppImage" \;
+          fi
+          
+          # DEB 包
+          if [ -d "$bundle_path/deb" ]; then
+            find "$bundle_path/deb" -name "*.deb" -exec cp {} "dist/OwnExcaliDesk-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}.deb" \;
+          fi
+          
+          # RPM 包
+          if [ -d "$bundle_path/rpm" ]; then
+            find "$bundle_path/rpm" -name "*.rpm" -exec cp {} "dist/OwnExcaliDesk-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}.rpm" \;
+          fi
+          
+          # 可执行文件
+          exe_path="src-tauri/target/${{ matrix.target }}/release/excaliapp"
+          if [ -f "$exe_path" ]; then
+            cp "$exe_path" "dist/OwnExcaliDesk-${{ needs.get-version.outputs.version }}-${{ matrix.platform }}"
+          fi
+          
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}
+          path: dist/*
+          retention-days: 7
+
+  # 创建 GitHub Release
+  release:
+    needs: [get-version, build]
+    runs-on: ubuntu-latest
+    if: always() && needs.build.result == 'success'
+    
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        
+      - name: 下载所有构建产物
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          
+      - name: 整理发布文件
+        run: |
+          mkdir -p release
+          find artifacts -type f -exec cp {} release/ \;
+          ls -la release/
+          
+      - name: 生成更新日志
+        id: changelog
+        run: |
+          VERSION="${{ needs.get-version.outputs.version }}"
+          echo "## 🚀 OwnExcaliDesk ${VERSION} 发布" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "### 📦 下载" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "| 平台 | 架构 | 下载链接 |" >> CHANGELOG.md
+          echo "|------|------|----------|" >> CHANGELOG.md
+          
+          for file in release/*; do
+            if [ -f "$file" ]; then
+              filename=$(basename "$file")
+              if [[ "$filename" == *"windows-x64"* ]]; then
+                echo "| Windows | x64 | [\`$filename\`]($file) |" >> CHANGELOG.md
+              elif [[ "$filename" == *"windows-arm64"* ]]; then
+                echo "| Windows | ARM64 | [\`$filename\`]($file) |" >> CHANGELOG.md
+              elif [[ "$filename" == *"macos-x64"* ]]; then
+                echo "| macOS | Intel | [\`$filename\`]($file) |" >> CHANGELOG.md
+              elif [[ "$filename" == *"macos-arm64"* ]]; then
+                echo "| macOS | Apple Silicon | [\`$filename\`]($file) |" >> CHANGELOG.md
+              elif [[ "$filename" == *"linux-x64"* ]]; then
+                echo "| Linux | x64 | [\`$filename\`]($file) |" >> CHANGELOG.md
+              elif [[ "$filename" == *"linux-arm64"* ]]; then
+                echo "| Linux | ARM64 | [\`$filename\`]($file) |" >> CHANGELOG.md
+              fi
+            fi
+          done
+          
+          echo "" >> CHANGELOG.md
+          echo "### ✨ 特性" >> CHANGELOG.md
+          echo "- 🎨 全新简洁现代的应用图标设计" >> CHANGELOG.md
+          echo "- 📱 支持跨平台：Windows、macOS、Linux" >> CHANGELOG.md
+          echo "- 🏗️ 支持多架构：x64、ARM64" >> CHANGELOG.md
+          echo "- 🔧 基于 Tauri 2.0 构建，性能优异" >> CHANGELOG.md
+          echo "- 🎯 集成 Excalidraw，本地化绘图体验" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "### 💻 安装说明" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "**Windows：**" >> CHANGELOG.md
+          echo "- 下载 \`.msi\` 文件进行安装" >> CHANGELOG.md
+          echo "- 或下载 \`-setup.exe\` 安装程序" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "**macOS：**" >> CHANGELOG.md
+          echo "- 下载 \`.dmg\` 文件进行安装" >> CHANGELOG.md
+          echo "- Intel Mac 选择 \`macos-x64\`" >> CHANGELOG.md
+          echo "- Apple Silicon Mac 选择 \`macos-arm64\`" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "**Linux：**" >> CHANGELOG.md
+          echo "- Ubuntu/Debian: 下载 \`.deb\` 文件" >> CHANGELOG.md
+          echo "- RHEL/CentOS: 下载 \`.rpm\` 文件" >> CHANGELOG.md
+          echo "- 通用: 下载 \`.AppImage\` 文件" >> CHANGELOG.md
+          
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          cat CHANGELOG.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+      - name: 创建 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.get-version.outputs.version }}
+          name: OwnExcaliDesk ${{ needs.get-version.outputs.version }}
+          body: ${{ steps.changelog.outputs.changelog }}
+          files: release/*
+          prerelease: ${{ needs.get-version.outputs.prerelease }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # 构建后清理
+  cleanup:
+    needs: [build, release]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: 清理工作区
+        run: |
+          echo "🧹 构建完成，清理工作区"
+          echo "✅ 跨平台构建完成"
+          echo "📦 Release 已创建：${{ needs.get-version.outputs.version }}"

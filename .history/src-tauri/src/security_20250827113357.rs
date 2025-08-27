@@ -43,10 +43,13 @@ pub fn validate_path(path: &Path, allowed_base: Option<&Path>) -> Result<PathBuf
     
     // For absolute paths, additional security checks
     if canonical_path.is_absolute() {
+        // Check if the canonicalized path contains suspicious patterns that might indicate traversal
+        let canonical_str = canonical_path.to_string_lossy();
+        
         // More sophisticated check: look for patterns that could indicate path traversal
         // Allow legitimate paths that happen to contain these characters in their names
-        let components: Vec<String> = canonical_path.components()
-            .map(|c| c.as_os_str().to_string_lossy().to_string())
+        let components: Vec<&str> = canonical_path.components()
+            .map(|c| c.as_os_str().to_string_lossy())
             .collect();
         
         // Check if any component is suspicious

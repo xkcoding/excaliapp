@@ -1,0 +1,227 @@
+name: 持续集成
+
+on:
+  push:
+    branches: [ master, main, develop, 'ci/*' ]
+  pull_request:
+    branches: [ master, main, develop ]
+
+env:
+  CARGO_INCREMENTAL: 0
+  RUST_BACKTRACE: short
+
+jobs:
+  # 代码质量检查
+  lint-and-format:
+    name: 代码格式化和 Lint 检查
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          
+      - name: 安装前端依赖
+        run: npm ci
+        
+      - name: 安装 Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+          cache: true
+          
+      - name: 前端 Lint 检查
+        run: |
+          # TypeScript 类型检查
+          npx tsc --noEmit
+          
+      - name: Rust 格式化检查
+        run: cargo fmt --all -- --check
+        working-directory: src-tauri
+        
+      - name: Rust Clippy 检查
+        run: cargo clippy --all-targets --all-features -- -D warnings
+        working-directory: src-tauri
+
+  # 单元测试
+  test:
+    name: 运行测试
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          
+      - name: 安装前端依赖
+        run: npm ci
+        
+      - name: 安装 Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          cache: true
+          
+      # Linux 特定依赖
+      - name: 安装 Linux 依赖 (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev \
+            pkg-config
+            
+      - name: 运行前端测试
+        run: npm test
+        
+      - name: 运行 Rust 测试
+        run: cargo test --all
+        working-directory: src-tauri
+
+  # 构建测试
+  build-test:
+    name: 构建测试
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          
+      - name: 安装前端依赖
+        run: npm ci
+        
+      - name: 安装 Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          cache: true
+          
+      # Linux 特定依赖
+      - name: 安装 Linux 依赖 (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev \
+            pkg-config
+            
+      - name: 构建前端
+        run: npm run build
+        
+      - name: 构建 Tauri 应用
+        run: npm run tauri build
+        env:
+          # 测试构建，不需要签名
+          TAURI_SIGNING_PRIVATE_KEY: ''
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
+
+  # 安全检查
+  security:
+    name: 安全检查
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          
+      - name: 安装前端依赖
+        run: npm ci
+        
+      - name: 安装 Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          cache: true
+          
+      - name: 前端安全审计
+        run: npm audit --audit-level moderate
+        
+      - name: Rust 安全审计
+        run: |
+          cargo install cargo-audit
+          cargo audit
+        working-directory: src-tauri
+
+  # 依赖检查
+  dependency-review:
+    name: 依赖审查
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        
+      - name: 依赖审查
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: moderate
+
+  # 总结报告
+  ci-summary:
+    name: CI 总结报告
+    needs: [lint-and-format, test, build-test, security]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: 生成 CI 总结
+        run: |
+          echo "## 🔍 CI 检查结果" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| 检查项目 | 状态 |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 代码格式化和 Lint | ${{ needs.lint-and-format.result == 'success' && '✅ 通过' || '❌ 失败' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 单元测试 | ${{ needs.test.result == 'success' && '✅ 通过' || '❌ 失败' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 构建测试 | ${{ needs.build-test.result == 'success' && '✅ 通过' || '❌ 失败' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 安全检查 | ${{ needs.security.result == 'success' && '✅ 通过' || '❌ 失败' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "${{ needs.lint-and-format.result }}" == "success" && \
+                "${{ needs.test.result }}" == "success" && \
+                "${{ needs.build-test.result }}" == "success" && \
+                "${{ needs.security.result }}" == "success" ]]; then
+            echo "🎉 所有检查均已通过！代码可以合并。" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ 存在检查失败的项目，请查看详细日志并修复问题。" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi

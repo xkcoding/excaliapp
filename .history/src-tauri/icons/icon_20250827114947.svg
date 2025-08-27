@@ -1,0 +1,90 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Modern gradient definitions -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+    </linearGradient>
+    
+    <linearGradient id="pencilGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ec4899;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f43f5e;stop-opacity:1" />
+    </linearGradient>
+    
+    <linearGradient id="serverGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#10b981;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#059669;stop-opacity:1" />
+    </linearGradient>
+    
+    <linearGradient id="accentGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0891b2;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- Drop shadow filter -->
+    <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="2" dy="4" stdDeviation="3" flood-color="#000000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  
+  <!-- Background circle with gradient -->
+  <circle cx="64" cy="64" r="60" fill="url(#bgGradient)" filter="url(#dropShadow)"/>
+  
+  <!-- Inner white circle for content area -->
+  <circle cx="64" cy="64" r="52" fill="white" opacity="0.95"/>
+  
+  <!-- Server/Cloud element (representing self-host) -->
+  <g transform="translate(64, 64)">
+    <!-- Server base -->
+    <rect x="-20" y="15" width="40" height="25" rx="3" fill="url(#serverGradient)" opacity="0.9"/>
+    
+    <!-- Server details -->
+    <rect x="-15" y="20" width="30" height="3" rx="1" fill="white" opacity="0.8"/>
+    <rect x="-15" y="26" width="20" height="3" rx="1" fill="white" opacity="0.6"/>
+    <rect x="-15" y="32" width="25" height="3" rx="1" fill="white" opacity="0.7"/>
+    
+    <!-- Connection lines -->
+    <line x1="-25" y1="27" x2="-20" y2="27" stroke="url(#serverGradient)" stroke-width="2" stroke-linecap="round"/>
+    <line x1="20" y1="27" x2="25" y2="27" stroke="url(#serverGradient)" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  
+  <!-- Pencil tool (representing Excalidraw) -->
+  <g transform="translate(64, 64)">
+    <!-- Pencil body -->
+    <rect x="-3" y="-25" width="6" height="50" rx="3" fill="url(#pencilGradient)" transform="rotate(45)"/>
+    
+    <!-- Pencil tip -->
+    <path d="M -8 -8 L 8 -8 L 0 8 Z" fill="url(#pencilGradient)" transform="rotate(45) translate(0, -25)"/>
+    
+    <!-- Pencil eraser -->
+    <rect x="-4" y="-30" width="8" height="6" rx="2" fill="#f8f9fa" transform="rotate(45) translate(0, 25)"/>
+  </g>
+  
+  <!-- Drawing elements representing Excalidraw -->
+  <!-- Circle -->
+  <circle cx="45" cy="50" r="6" fill="url(#accentGradient)" opacity="0.8"/>
+  
+  <!-- Square -->
+  <rect x="75" y="45" width="12" height="12" rx="2" fill="url(#accentGradient)" opacity="0.8"/>
+  
+  <!-- Triangle -->
+  <path d="M 50 80 L 65 65 L 80 80 Z" fill="url(#accentGradient)" opacity="0.8"/>
+  
+  <!-- Line -->
+  <line x1="40" y1="80" x2="80" y2="80" stroke="#6366f1" stroke-width="2" opacity="0.7" stroke-linecap="round"/>
+  
+  <!-- Connection dots -->
+  <circle cx="40" cy="80" r="2" fill="#6366f1"/>
+  <circle cx="80" cy="80" r="2" fill="#6366f1"/>
+  
+  <!-- Small decorative elements -->
+  <circle cx="25" cy="25" r="2" fill="#ec4899" opacity="0.6"/>
+  <circle cx="100" cy="30" r="2" fill="#06b6d4" opacity="0.6"/>
+  <circle cx="20" cy="100" r="2" fill="#10b981" opacity="0.6"/>
+  <circle cx="105" cy="95" r="2" fill="#f59e0b" opacity="0.6"/>
+  
+  <!-- App name text -->
+  <text x="64" y="115" text-anchor="middle" font-family="Arial, sans-serif" font-size="7" fill="#6366f1" opacity="0.8" font-weight="bold">
+    Excalidraw Self-host
+  </text>
+</svg>
