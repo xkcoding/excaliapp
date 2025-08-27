@@ -19,7 +19,7 @@
 
 ### 下载预构建版本
 
-从 [Releases](https://github.com/xkcoding/excaliapp/releases) 页面下载适合您平台的最新版本。
+从 [Releases](../../releases) 页面下载适合您平台的最新版本。
 
 #### 支持的平台
 

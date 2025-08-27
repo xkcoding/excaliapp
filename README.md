@@ -19,7 +19,7 @@ A free, open-source desktop application for managing and editing local Excalidra
 
 ### Download Pre-built Binaries
 
-Download the latest version for your platform from the [Releases](https://github.com/xkcoding/excaliapp/releases) page.
+Download the latest version for your platform from the [Releases](../../releases) page.
 
 #### Supported Platforms
 
