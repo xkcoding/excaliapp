@@ -15,18 +15,25 @@ import './index.css'
 function App() {
   const { loadPreferences, loadDirectory, currentDirectory, sidebarVisible, isDirty, saveCurrentFile, toggleSidebar, activeFile } = useStore()
   const { showDialog } = useDialog()
-  const { initialize: initializeI18n } = useI18nStore()
+  const { initialize: initializeI18n, isLoading: i18nLoading } = useI18nStore()
   const { t } = useTranslation()
   const [isAISettingsOpen, setIsAISettingsOpen] = useState(false)
+  const [isI18nInitialized, setIsI18nInitialized] = useState(false)
 
 
   // Load preferences and setup on mount
   useEffect(() => {
     const initializeApp = async () => {
-      await loadPreferences()
-      console.log('🌐 Initializing i18n...')
-      await initializeI18n()
-      console.log('🌐 i18n initialized, testing translation:', t('app.name'))
+      try {
+        await loadPreferences()
+        console.log('🌐 Initializing i18n...')
+        await initializeI18n()
+        console.log('🌐 i18n initialized, testing translation:', t('app.name'))
+        setIsI18nInitialized(true)
+      } catch (error) {
+        console.error('Failed to initialize app:', error)
+        setIsI18nInitialized(true) // Continue even if failed
+      }
     }
     initializeApp()
   }, [])
@@ -157,6 +164,19 @@ function App() {
   
   // Setup menu handler (NOTE: ExcalidrawEditor will set the Excalidraw API)
   useMenuHandler()
+
+  // Show loading screen while i18n is initializing
+  if (!isI18nInitialized || i18nLoading) {
+    return (
+      <div className="h-screen flex bg-white text-gray-900 overflow-hidden items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-solid border-blue-600 border-r-transparent mb-4"></div>
+          <p className="text-lg font-medium text-gray-700">OwnExcaliDesk</p>
+          <p className="text-sm text-gray-500">Initializing...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="h-screen flex bg-white text-gray-900 overflow-hidden">

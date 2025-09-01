@@ -5,6 +5,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useStore } from '../store/useStore'
 import { convertPreferencesToRust } from '../lib/preferences'
 import { useI18nStore } from '../store/useI18nStore'
+import { dialogService } from '../services/dialogService'
 
 interface MenuCommand {
   command: string
@@ -372,7 +373,7 @@ export function useMenuHandler() {
   }
 
   const handleLanguageSwitch = async (language: 'zh-CN' | 'en-US') => {
-    const { config } = useI18nStore.getState()
+    const { config, t } = useI18nStore.getState()
     
     // If already in this language, no need to restart
     if (config.currentLanguage === language) {
@@ -383,20 +384,23 @@ export function useMenuHandler() {
       // Switch language first
       await switchLanguage(language)
       
-      // Show restart confirmation dialog
-      const { message, ask } = await import('@tauri-apps/plugin-dialog')
+      // Get the updated translation function after language switch
+      const { t: newT } = useI18nStore.getState()
       
-      const shouldRestart = await ask(
-        language === 'zh-CN' 
-          ? '语言设置已更改。需要重启应用以更新菜单栏语言。是否立即重启？'
-          : 'Language setting has been changed. The app needs to restart to update the menu bar language. Restart now?',
-        {
-          title: language === 'zh-CN' ? '重启应用' : 'Restart App',
-          kind: 'info'
-        }
-      )
+      // Get language display name
+      const languageName = language === 'zh-CN' ? '中文' : 'English'
       
-      if (shouldRestart) {
+      // Show restart confirmation dialog using CustomDialog style
+      const shouldRestart = await dialogService.showDialog({
+        title: newT('dialog.languageRestart.title'),
+        message: newT('dialog.languageRestart.message', { language: languageName }),
+        type: 'info',
+        confirmLabel: newT('dialog.languageRestart.restart'),
+        cancelLabel: newT('dialog.languageRestart.cancel'),
+        showCancel: true
+      })
+      
+      if (shouldRestart === true) {
         // Save any unsaved work first
         const store = useStore.getState()
         if (store.isDirty) {

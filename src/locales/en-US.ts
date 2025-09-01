@@ -275,9 +275,23 @@ export const translations: TranslationKeys = {
     // Close confirmation
     closeConfirm: {
       title: 'Confirm Close Without Saving - OwnExcaliDesk',
-      message: 'Warning: All your unsaved changes will be permanently lost!\n\nThis action cannot be undone. Are you sure you want to continue?',
+      message: 'Warning: All your unsaved changes will be permanently lost!
+
+This action cannot be undone. Are you sure you want to continue?',
       closeWithoutSaving: 'Close Without Saving',
       goBack: 'Go Back'
+    },
+
+    // Language restart confirmation
+    languageRestart: {
+      title: '🌐 Restart App to Apply Language Settings',
+      message: 'Language has been changed to {{language}}.
+
+The app needs to restart to update the menu bar and interface language.
+
+Restart now?',
+      restart: '🔄 Restart Now',
+      cancel: '❌ Restart Later'
     },
 
     // Delete confirmation
