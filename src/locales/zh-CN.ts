@@ -275,9 +275,7 @@ export const translations: TranslationKeys = {
     // 关闭确认
     closeConfirm: {
       title: '确认不保存关闭 - OwnExcaliDesk',
-      message: '警告：所有未保存的更改将永久丢失！
-
-此操作无法撤销。您确定要继续吗？',
+      message: '警告：所有未保存的更改将永久丢失！\n\n此操作无法撤销。您确定要继续吗？',
       closeWithoutSaving: '不保存关闭',
       goBack: '返回'
     },
@@ -285,11 +283,7 @@ export const translations: TranslationKeys = {
     // 语言切换重启确认
     languageRestart: {
       title: '🌐 重启应用以应用语言设置',
-      message: '语言设置已更改为 {{language}}。
-
-应用需要重启以更新菜单栏和界面语言。
-
-是否立即重启？',
+      message: '语言设置已更改为 {{language}}。\n\n应用需要重启以更新菜单栏和界面语言。\n\n是否立即重启？',
       restart: '🔄 立即重启',
       cancel: '❌ 稍后重启'
     },
