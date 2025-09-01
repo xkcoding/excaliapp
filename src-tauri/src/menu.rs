@@ -6,6 +6,7 @@ use tauri::{
     },
     AppHandle, Emitter, Manager, Runtime,
 };
+use tauri_plugin_store::StoreExt;
 
 use crate::AppState;
 
@@ -13,6 +14,90 @@ use crate::AppState;
 pub struct MenuCommand {
     pub command: String,
     pub data: Option<serde_json::Value>,
+}
+
+fn get_current_locale<R: Runtime>(app: &AppHandle<R>) -> String {
+    if let Ok(store) = app.store("i18n-store.json") {
+        if let Some(value) = store.get("state") {
+            if let Some(config) = value.get("config") {
+                if let Some(current_language) = config.get("currentLanguage") {
+                    if let Some(lang_str) = current_language.as_str() {
+                        return lang_str.to_string();
+                    }
+                }
+            }
+        }
+    }
+    "en-US".to_string() // Default fallback
+}
+
+fn get_menu_text(key: &str, locale: &str) -> &'static str {
+    match (locale, key) {
+        // File menu
+        ("zh-CN", "File") => "文件",
+        ("zh-CN", "Open Directory") => "打开目录",
+        ("zh-CN", "New File") => "新建文件",
+        ("zh-CN", "Save") => "保存",
+        ("zh-CN", "Save As...") => "另存为...",
+        ("zh-CN", "Recent Directories") => "最近目录",
+        ("zh-CN", "Clear Recent") => "清除最近",
+        ("zh-CN", "Quit") => "退出",
+        
+        // Edit menu
+        ("zh-CN", "Edit") => "编辑",
+        
+        // View menu
+        ("zh-CN", "View") => "查看",
+        ("zh-CN", "Toggle Sidebar") => "切换侧边栏",
+        ("zh-CN", "Zoom In") => "放大",
+        ("zh-CN", "Zoom Out") => "缩小",
+        ("zh-CN", "Reset Zoom") => "重置缩放",
+        ("zh-CN", "Toggle Fullscreen") => "切换全屏",
+        
+        // Window menu
+        ("zh-CN", "Window") => "窗口",
+        ("zh-CN", "Minimize") => "最小化",
+        ("zh-CN", "Close Window") => "关闭窗口",
+        
+        // Help menu
+        ("zh-CN", "Help") => "帮助",
+        ("zh-CN", "Keyboard Shortcuts") => "键盘快捷键",
+        ("zh-CN", "About ExcaliApp") => "关于 ExcaliApp",
+        
+        // Language menu
+        ("zh-CN", "Language") => "语言",
+        ("zh-CN", "Chinese") => "中文",
+        ("zh-CN", "English") => "English",
+        
+        // Default to English
+        _ => match key {
+            "File" => "File",
+            "Open Directory" => "Open Directory",
+            "New File" => "New File",
+            "Save" => "Save",
+            "Save As..." => "Save As...",
+            "Recent Directories" => "Recent Directories",
+            "Clear Recent" => "Clear Recent",
+            "Quit" => "Quit",
+            "Edit" => "Edit",
+            "View" => "View",
+            "Toggle Sidebar" => "Toggle Sidebar",
+            "Zoom In" => "Zoom In",
+            "Zoom Out" => "Zoom Out",
+            "Reset Zoom" => "Reset Zoom",
+            "Toggle Fullscreen" => "Toggle Fullscreen",
+            "Window" => "Window",
+            "Minimize" => "Minimize",
+            "Close Window" => "Close Window",
+            "Help" => "Help",
+            "Keyboard Shortcuts" => "Keyboard Shortcuts",
+            "About ExcaliApp" => "About ExcaliApp",
+            "Language" => "Language",
+            "Chinese" => "Chinese",
+            "English" => "English",
+            _ => key,
+        }
+    }
 }
 
 pub fn create_menu<R: Runtime>(app: &AppHandle<R>) -> Result<Menu<R>, Box<dyn std::error::Error>> {
