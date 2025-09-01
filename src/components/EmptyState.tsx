@@ -1,9 +1,11 @@
 import { FolderOpen, File } from 'lucide-react'
 import { useStore } from '../store/useStore'
+import { useTranslation } from '../store/useI18nStore'
 import { invoke } from '@tauri-apps/api/core'
 
 export function EmptyState() {
   const { currentDirectory } = useStore()
+  const { t } = useTranslation()
   
   const handleSelectDirectory = async () => {
     const dir = await invoke<string | null>('select_directory')
@@ -43,32 +45,30 @@ export function EmptyState() {
         {/* 文字内容 */}
         <div className="space-y-4">
           <h2 className="text-xl font-semibold text-gray-800">
-            Welcome to OwnExcaliDesk
+            {t('file.emptyState.title')}
           </h2>
           
           {!currentDirectory ? (
             <>
               <p className="text-gray-600 leading-relaxed">
-                Start by selecting a directory to browse your Excalidraw files, 
-                or create new drawings right away.
+                {t('file.emptyState.subtitle')}
               </p>
               <button
                 onClick={handleSelectDirectory}
                 className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
               >
                 <FolderOpen className="w-4 h-4" />
-                Select Directory
+                {t('file.emptyState.selectAction')}
               </button>
             </>
           ) : (
             <>
               <p className="text-gray-600 leading-relaxed">
-                No Excalidraw files found in the current directory.
-                Create your first drawing to get started!
+                {t('file.emptyState.noFiles')}
               </p>
               <div className="flex items-center justify-center gap-3 text-sm text-gray-500">
                 <File className="w-4 h-4" />
-                <span>Use the "New File" button in the sidebar</span>
+                <span>{t('file.emptyState.newFileHint')}</span>
               </div>
             </>
           )}
@@ -76,16 +76,16 @@ export function EmptyState() {
         
         {/* 提示信息 */}
         <div className="mt-8 text-xs text-gray-500 bg-white/50 backdrop-blur-sm rounded-lg p-3">
-          <p>💡 <strong>Tip:</strong> You can drag files between folders to organize your drawings</p>
+          <p>{t('file.emptyState.tip')}</p>
         </div>
         
         {/* 开发者信息 */}
         <div className="mt-6 pt-4 border-t border-gray-200/50">
           <div className="flex items-center justify-center gap-2 text-xs text-gray-400 mb-1">
-            <span>👨‍💻 柏玄 (Yangkai.Shen)</span>
+            <span>{t('app.developer')}</span>
           </div>
           <div className="text-xs text-gray-400 text-center mb-1">
-            版本: v0.2.0 | 构建时间: 2025-08-28
+            {t('app.version', { version: 'v0.2.0', buildDate: '2025-08-28' })}
           </div>
         </div>
       </div>

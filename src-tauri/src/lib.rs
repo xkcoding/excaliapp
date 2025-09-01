@@ -678,6 +678,11 @@ async fn force_close_app(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+async fn restart_app(app: AppHandle) -> Result<(), String> {
+    app.restart();
+}
+
+#[tauri::command]
 async fn set_title(title: String, window: tauri::Window) -> Result<(), String> {
     window.set_title(&title)
         .map_err(|e| format!("Failed to set title: {}", e))?;
@@ -803,6 +808,7 @@ pub fn run() {
             save_preferences,
             watch_directory,
             force_close_app,
+            restart_app,
             set_title,
         ])
         .run(tauri::generate_context!())

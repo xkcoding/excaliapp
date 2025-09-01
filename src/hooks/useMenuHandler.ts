@@ -4,6 +4,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useStore } from '../store/useStore'
 import { convertPreferencesToRust } from '../lib/preferences'
+import { useI18nStore } from '../store/useI18nStore'
 
 interface MenuCommand {
   command: string
@@ -27,6 +28,8 @@ export function useMenuHandler() {
     preferences,
     savePreferences,
   } = useStore()
+  
+  const { switchLanguage } = useI18nStore()
 
   // Use the global reference instead of a local one
   const setExcalidrawAPI = (api: any) => {
@@ -104,6 +107,46 @@ export function useMenuHandler() {
 
           case 'close_window':
             await getCurrentWindow().close()
+            break
+
+          // Language menu commands
+          case 'language_zh_CN':
+            await handleLanguageSwitch('zh-CN')
+            break
+
+          case 'language_en_US':
+            await handleLanguageSwitch('en-US')
+            break
+
+          // Preferences menu commands
+          case 'ai_settings':
+            console.log('🔧 Opening AI Settings from menu')
+            window.dispatchEvent(new CustomEvent('open-ai-settings'))
+            break
+
+          // Layout menu commands
+          case 'layout_mrtree':
+            handleDirectLayout('mrtree', { x: 120, y: 100 }, 'DOWN')
+            break
+
+          case 'layout_layered':
+            handleDirectLayout('layered', { x: 150, y: 80 }, 'DOWN')
+            break
+
+          case 'layout_box':
+            handleDirectLayout('box', { x: 100, y: 80 })
+            break
+
+          case 'layout_stress':
+            handleDirectLayout('stress', { x: 100, y: 100 })
+            break
+
+          case 'layout_grid':
+            handleDirectLayout('grid', { x: 80, y: 80 })
+            break
+
+          case 'auto_layout':
+            handleAutoLayout()
             break
 
           // Help menu commands
@@ -268,32 +311,156 @@ export function useMenuHandler() {
     }
   }
 
-  const handleShowKeyboardShortcuts = () => {
-    // Create a simple modal or alert with keyboard shortcuts
-    const shortcuts = `
-Keyboard Shortcuts:
 
-File:
-  Open Directory: Cmd/Ctrl+O
-  New File: Cmd/Ctrl+N
-  Save: Cmd/Ctrl+S
-  Save As: Cmd/Ctrl+Shift+S
-  Quit: Cmd/Ctrl+Q
 
-View:
-  Toggle Sidebar: Cmd/Ctrl+B
-  Zoom In: Cmd/Ctrl++
-  Zoom Out: Cmd/Ctrl+-
-  Reset Zoom: Cmd/Ctrl+0
-  Fullscreen: F11 (Ctrl+Cmd+F on Mac)
+  // Layout menu handlers
+  const handleDirectLayout = (algorithm: string, spacing: { x: number; y: number }, direction?: string) => {
+    if (!globalExcalidrawAPI) {
+      console.warn('Excalidraw API not available for layout')
+      return
+    }
 
-Window:
-  Minimize: Cmd/Ctrl+M
-  Close Window: Cmd/Ctrl+W
+    const appState = globalExcalidrawAPI.getAppState()
+    const elements = globalExcalidrawAPI.getSceneElements()
+    const selectedElements = elements.filter((el: any) => 
+      appState.selectedElementIds[el.id]
+    )
 
-Note: All editing operations (copy, paste, undo, etc.) are handled natively by Excalidraw.
-    `
-    alert(shortcuts)
+    if (selectedElements.length === 0) {
+      alert('请先选择要布局的元素')
+      return
+    }
+
+    // Trigger layout directly without dialog
+    window.dispatchEvent(new CustomEvent('apply-direct-layout', {
+      detail: { 
+        algorithm,
+        spacing,
+        direction
+      }
+    }))
+  }
+
+  const handleAutoLayout = () => {
+    if (!globalExcalidrawAPI) {
+      console.warn('Excalidraw API not available for layout')
+      return
+    }
+
+    const appState = globalExcalidrawAPI.getAppState()
+    const elements = globalExcalidrawAPI.getSceneElements()
+    const selectedElements = elements.filter((el: any) => 
+      appState.selectedElementIds[el.id]
+    )
+
+    if (selectedElements.length === 0) {
+      alert('请先选择要布局的元素')
+      return
+    }
+
+    // Trigger the original layout selection dialog
+    window.dispatchEvent(new CustomEvent('open-layout-selection', {
+      detail: { 
+        elementCount: selectedElements.length,
+        onSelect: (algorithm: string, spacing: { x: number; y: number }, direction?: string) => {
+          window.dispatchEvent(new CustomEvent('apply-direct-layout', {
+            detail: { algorithm, spacing, direction }
+          }))
+        }
+      }
+    }))
+  }
+
+  const handleLanguageSwitch = async (language: 'zh-CN' | 'en-US') => {
+    const { config } = useI18nStore.getState()
+    
+    // If already in this language, no need to restart
+    if (config.currentLanguage === language) {
+      return
+    }
+    
+    try {
+      // Switch language first
+      await switchLanguage(language)
+      
+      // Show restart confirmation dialog
+      const { message, ask } = await import('@tauri-apps/plugin-dialog')
+      
+      const shouldRestart = await ask(
+        language === 'zh-CN' 
+          ? '语言设置已更改。需要重启应用以更新菜单栏语言。是否立即重启？'
+          : 'Language setting has been changed. The app needs to restart to update the menu bar language. Restart now?',
+        {
+          title: language === 'zh-CN' ? '重启应用' : 'Restart App',
+          kind: 'info'
+        }
+      )
+      
+      if (shouldRestart) {
+        // Save any unsaved work first
+        const store = useStore.getState()
+        if (store.isDirty) {
+          await store.saveCurrentFile()
+        }
+        
+        // Restart the application
+        await invoke('restart_app')
+      }
+    } catch (error) {
+      console.error('Failed to switch language:', error)
+    }
+  }
+
+  const handleShowKeyboardShortcuts = async () => {
+    // Prevent multiple simultaneous executions
+    if ((handleShowKeyboardShortcuts as any).isExecuting) {
+      console.log('🚫 Keyboard shortcuts dialog already showing, ignoring duplicate call')
+      return
+    }
+    
+    (handleShowKeyboardShortcuts as any).isExecuting = true
+    
+    try {
+      // Use Tauri dialog instead of browser alert
+      const { message } = await import('@tauri-apps/plugin-dialog')
+    
+    const shortcuts = `键盘快捷键：
+
+文件:
+  打开目录: Cmd+O (Mac) / Ctrl+O (Win/Linux)
+  新建文件: Cmd+N (Mac) / Ctrl+N (Win/Linux) 
+  保存: Cmd+S (Mac) / Ctrl+S (Win/Linux)
+  另存为: Cmd+Shift+S (Mac) / Ctrl+Shift+S (Win/Linux)
+  退出: Cmd+Q (Mac) / Ctrl+Q (Win/Linux)
+
+视图:
+  切换侧边栏: Cmd+B (Mac) / Ctrl+B (Win/Linux)
+  放大: Cmd++ (Mac) / Ctrl++ (Win/Linux)
+  缩小: Cmd+- (Mac) / Ctrl+- (Win/Linux)
+  重置缩放: Cmd+0 (Mac) / Ctrl+0 (Win/Linux)
+  全屏: F11 (Ctrl+Cmd+F on Mac)
+
+布局:
+  自动布局: Ctrl+Shift+L (所有平台)
+
+偏好设置:
+  AI 设置: 配置 AI API 设置
+
+窗口:
+  最小化: Cmd+M (Mac) / Ctrl+M (Win/Linux)
+  关闭窗口: Cmd+W (Mac) / Ctrl+W (Win/Linux)
+
+注意: 所有编辑操作 (复制、粘贴、撤销等) 由 Excalidraw 原生处理。`
+    
+    await message(shortcuts, { 
+        title: '键盘快捷键 - OwnExcaliDesk',
+        kind: 'info'
+      })
+    } catch (error) {
+      console.error('Failed to show keyboard shortcuts:', error)
+    } finally {
+      (handleShowKeyboardShortcuts as any).isExecuting = false
+    }
   }
 
   return { setExcalidrawAPI }

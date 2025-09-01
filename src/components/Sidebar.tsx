@@ -1,6 +1,7 @@
 import { ScrollArea } from '@radix-ui/react-scroll-area'
 import { FolderOpen, Plus, PanelLeftClose, FolderPlus } from 'lucide-react'
 import { useStore } from '../store/useStore'
+import { useTranslation } from '../store/useI18nStore'
 import { TreeView } from './TreeView'
 import { FileTreeNode } from '../types'
 import { invoke } from '@tauri-apps/api/core'
@@ -28,6 +29,7 @@ export function Sidebar() {
     createDirectory,
     toggleSidebar,
   } = useStore()
+  const { t } = useTranslation()
 
   const handleSelectDirectory = async () => {
     const dir = await invoke<string | null>('select_directory')
@@ -76,7 +78,7 @@ export function Sidebar() {
       console.log('Directory created successfully')
     } catch (error) {
       console.error('Error in handleNewFolder:', error)
-      alert(`Failed to create folder: ${error}`)
+      alert(t('dialog.errors.createFolderFailed', { error: String(error) }))
     }
   }
 
@@ -91,14 +93,14 @@ export function Sidebar() {
           >
             <FolderOpen className="w-4 h-4" />
             <span className="text-sm font-medium truncate">
-              {currentDirectory ? currentDirectory.split('/').pop() : 'Select Directory'}
+              {currentDirectory ? currentDirectory.split('/').pop() : t('file.selectDirectory')}
             </span>
           </button>
           
           <button
             onClick={toggleSidebar}
             className="p-2 rounded-md hover:bg-gray-100 hover:text-gray-900 transition-colors ml-2"
-            title="Hide sidebar"
+            title={t('menu.toggleSidebar')}
           >
             <PanelLeftClose className="w-4 h-4" />
           </button>
@@ -107,19 +109,19 @@ export function Sidebar() {
         <button
           onClick={handleNewFolder}
           className="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-100 hover:text-gray-900 transition-colors"
-          title={!currentDirectory ? 'Select a directory first' : 'Create a new folder'}
+          title={!currentDirectory ? t('file.selectDirectory') : t('file.createFolder')}
         >
           <FolderPlus className="w-4 h-4" />
-          <span className="text-sm">New Folder</span>
+          <span className="text-sm">{t('file.newFolder')}</span>
         </button>
         
         <button
           onClick={handleNewFile}
           className="w-full mt-1 flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-100 hover:text-gray-900 transition-colors"
-          title={!currentDirectory ? 'Select a directory first' : 'Create a new Excalidraw file'}
+          title={!currentDirectory ? t('file.selectDirectory') : t('file.createFile')}
         >
           <Plus className="w-4 h-4" />
-          <span className="text-sm">New File</span>
+          <span className="text-sm">{t('file.newFile')}</span>
         </button>
       </div>
 
@@ -128,7 +130,7 @@ export function Sidebar() {
         <div className="p-2">
           {fileTree.length === 0 ? (
             <div className="text-sm text-gray-500 text-center py-8">
-              {currentDirectory ? 'No .excalidraw files found' : 'No directory selected'}
+              {currentDirectory ? t('file.noFilesFound') : t('file.noDirectory')}
             </div>
           ) : (
             <TreeView
@@ -143,7 +145,7 @@ export function Sidebar() {
       {/* Footer */}
       <div className="p-3 border-t border-gray-200">
         <div className="text-xs text-gray-500">
-          {countFilesInTree(fileTree)} file{countFilesInTree(fileTree) !== 1 ? 's' : ''}
+          {t('file.fileCount', { count: countFilesInTree(fileTree) })}
         </div>
       </div>
     </div>

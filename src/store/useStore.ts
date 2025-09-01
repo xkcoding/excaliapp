@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { ExcalidrawFile, FileTreeNode, Preferences } from '../types'
 import { convertPreferencesFromRust, convertPreferencesToRust } from '../lib/preferences'
 import { dialogService } from '../services/dialogService'
+import { useI18nStore } from './useI18nStore'
 
 interface AppStore {
   // State
@@ -165,14 +166,18 @@ export const useStore = create<AppStore>((set, get) => ({
     
     // Check if current file has unsaved changes
     if (state.isDirty && state.activeFile) {
+      // Get current translations
+      const i18nState = useI18nStore.getState()
+      const t = i18nState.t
+      
       const response = await dialogService.showDialog({
-        title: 'Save Your Current Work? - OwnExcaliDesk',
-        message: `You have unsaved changes in "${state.activeFile.name.replace('.excalidraw', '')}".
+        title: t('dialog.saveConfirm.title'),
+        message: `您在 "${state.activeFile.name.replace('.excalidraw', '')}" 中有未保存的更改。
 
-Would you like to save your work before switching to another file?`,
+您想在切换到其他文件前保存您的作品吗？`,
         type: 'info',
-        confirmLabel: 'Save & Switch',
-        cancelLabel: "Don't Save",
+        confirmLabel: '保存并切换',
+        cancelLabel: '不保存',
         showCancel: true
       })
       
@@ -247,14 +252,18 @@ Would you like to save your work before switching to another file?`,
     
     // Check if current file has unsaved changes
     if (state.isDirty && state.activeFile) {
+      // Get current translations
+      const i18nState = useI18nStore.getState()
+      const t = i18nState.t
+      
       const response = await dialogService.showDialog({
-        title: 'Save Your Current Work? - OwnExcaliDesk',
-        message: `You have unsaved changes in "${state.activeFile.name.replace('.excalidraw', '')}".
+        title: t('dialog.saveConfirm.title'),
+        message: `您在 "${state.activeFile.name.replace('.excalidraw', '')}" 中有未保存的更改。
 
-Would you like to save your work before switching to another file?`,
+您想在切换到其他文件前保存您的作品吗？`,
         type: 'info',
-        confirmLabel: 'Save & Switch',
-        cancelLabel: "Don't Save",
+        confirmLabel: '保存并切换',
+        cancelLabel: '不保存',
         showCancel: true
       })
       
@@ -387,13 +396,13 @@ Would you like to save your work before switching to another file?`,
     // Check if current file has unsaved changes
     if (state.isDirty && state.activeFile) {
       const response = await dialogService.showDialog({
-        title: 'Save Before Creating New File? - OwnExcaliDesk',
-        message: `You have unsaved changes in "${state.activeFile.name.replace('.excalidraw', '')}".
+        title: '保存后新建文件？ - OwnExcaliDesk',
+        message: `您在 "${state.activeFile.name.replace('.excalidraw', '')}" 中有未保存的更改。
 
-Would you like to save your work before creating a new file?`,
+您想在新建文件前保存您的作品吗？`,
         type: 'info',
-        confirmLabel: 'Save & Create New',
-        cancelLabel: "Don't Save",
+        confirmLabel: '保存并新建',
+        cancelLabel: '不保存',
         showCancel: true
       })
       

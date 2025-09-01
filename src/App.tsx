@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { listen } from '@tauri-apps/api/event'
 import { invoke } from '@tauri-apps/api/core'
 import { Sidebar } from './components/Sidebar'
@@ -8,16 +8,49 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useMenuHandler } from './hooks/useMenuHandler'
 import { useDialog } from './contexts/DialogContext'
 import { PanelLeft } from 'lucide-react'
+import { AISettingsDialog } from './components/AISettingsDialog'
+import { useI18nStore, useTranslation } from './store/useI18nStore'
 import './index.css'
 
 function App() {
   const { loadPreferences, loadDirectory, currentDirectory, sidebarVisible, isDirty, saveCurrentFile, toggleSidebar, activeFile } = useStore()
   const { showDialog } = useDialog()
+  const { initialize: initializeI18n } = useI18nStore()
+  const { t } = useTranslation()
+  const [isAISettingsOpen, setIsAISettingsOpen] = useState(false)
 
 
   // Load preferences and setup on mount
   useEffect(() => {
-    loadPreferences()
+    const initializeApp = async () => {
+      await loadPreferences()
+      console.log('🌐 Initializing i18n...')
+      await initializeI18n()
+      console.log('🌐 i18n initialized, testing translation:', t('app.name'))
+    }
+    initializeApp()
+  }, [])
+
+  // Listen for menu events
+  useEffect(() => {
+    const handleOpenAISettings = (event: any) => {
+      console.log('🔧 App level: Opening AI Settings')
+      const returnTo = event?.detail?.returnTo
+      if (returnTo) {
+        console.log('Will return to:', returnTo)
+        // Store returnTo in URL for AI settings dialog to read
+        const url = new URL(window.location)
+        url.searchParams.set('returnTo', returnTo)
+        window.history.pushState({}, '', url.toString())
+      }
+      setIsAISettingsOpen(true)
+    }
+    
+    window.addEventListener('open-ai-settings', handleOpenAISettings)
+    
+    return () => {
+      window.removeEventListener('open-ai-settings', handleOpenAISettings)
+    }
   }, [])
 
   // Update window title based on active file
@@ -79,13 +112,11 @@ function App() {
       if (isDirty) {
         // First ask if they want to save
         const shouldSave = await showDialog({
-          title: 'Save Your Work? - OwnExcaliDesk',
-          message: `You have unsaved changes in your current drawing.
-
-Your creative work is important! Would you like to save it before closing the application?`,
+          title: t('dialog.saveConfirm.title'),
+          message: t('dialog.saveConfirm.message'),
           type: 'info',
-          confirmLabel: 'Save & Close',
-          cancelLabel: 'Cancel',
+          confirmLabel: t('dialog.saveConfirm.save'),
+          cancelLabel: t('dialog.saveConfirm.cancel'),
           showCancel: true
         })
         
@@ -96,13 +127,11 @@ Your creative work is important! Would you like to save it before closing the ap
         } else if (shouldSave === false) {
           // User chose "Cancel" - ask for confirmation to close without saving
           const reallyClose = await showDialog({
-            title: 'Confirm Close Without Saving - OwnExcaliDesk',
-            message: `Warning: All your unsaved changes will be permanently lost!
-
-This action cannot be undone. Are you sure you want to continue?`,
+            title: t('dialog.closeConfirm.title'),
+            message: t('dialog.closeConfirm.message'),
             type: 'warning',
-            confirmLabel: 'Close Without Saving',
-            cancelLabel: 'Go Back',
+            confirmLabel: t('dialog.closeConfirm.closeWithoutSaving'),
+            cancelLabel: t('dialog.closeConfirm.goBack'),
             showCancel: true
           })
           
@@ -147,13 +176,20 @@ This action cannot be undone. Are you sure you want to continue?`,
             onClick={toggleSidebar}
             className="absolute bottom-20 left-4 z-[60] flex items-center justify-center w-10 h-10 rounded-lg shadow-xs hover:shadow-sm hover:bg-gray-100 transition-all duration-150 active:scale-95"
             style={{ backgroundColor: '#ECECF4' }}
-            title="Show sidebar"
+            title={t('menu.toggleSidebar')}
           >
             <PanelLeft className="w-4 h-4 text-gray-700" />
           </button>
         )}
         <ExcalidrawEditor />
       </div>
+      
+      {/* AI Settings Dialog - Global level */}
+      <AISettingsDialog
+        isOpen={isAISettingsOpen}
+        onClose={() => setIsAISettingsOpen(false)}
+      />
+      
     </div>
   )
 }

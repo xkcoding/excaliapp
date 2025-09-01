@@ -16,25 +16,23 @@ pub struct MenuCommand {
     pub data: Option<serde_json::Value>,
 }
 
-fn get_current_locale<R: Runtime>(app: &AppHandle<R>) -> String {
-    if let Ok(store) = app.store("i18n-store.json") {
-        if let Some(value) = store.get("state") {
-            if let Some(config) = value.get("config") {
-                if let Some(current_language) = config.get("currentLanguage") {
-                    if let Some(lang_str) = current_language.as_str() {
-                        return lang_str.to_string();
-                    }
-                }
-            }
-        }
-    }
-    "en-US".to_string() // Default fallback
-}
-
+// Simple menu translation function  
 fn get_menu_text(key: &str, locale: &str) -> &'static str {
     match (locale, key) {
-        // File menu
         ("zh-CN", "File") => "文件",
+        ("zh-CN", "Edit") => "编辑",
+        ("zh-CN", "Layout") => "布局",
+        ("zh-CN", "View") => "视图",
+        ("zh-CN", "Language") => "语言",
+        ("zh-CN", "Preferences") => "偏好设置",
+        ("zh-CN", "Window") => "窗口",
+        ("zh-CN", "Help") => "帮助",
+        ("zh-CN", "layout_mrtree") => "🔀 流程图对称布局",
+        ("zh-CN", "layout_layered") => "📋 步骤序列布局",
+        ("zh-CN", "layout_box") => "📦 紧凑架构布局",
+        ("zh-CN", "layout_stress") => "🕸️ 关系网络布局",
+        ("zh-CN", "layout_grid") => "⚏ 整齐网格布局",
+        ("zh-CN", "auto_layout") => "🎯 智能选择布局...",
         ("zh-CN", "Open Directory") => "打开目录",
         ("zh-CN", "New File") => "新建文件",
         ("zh-CN", "Save") => "保存",
@@ -42,73 +40,126 @@ fn get_menu_text(key: &str, locale: &str) -> &'static str {
         ("zh-CN", "Recent Directories") => "最近目录",
         ("zh-CN", "Clear Recent") => "清除最近",
         ("zh-CN", "Quit") => "退出",
-        
-        // Edit menu
-        ("zh-CN", "Edit") => "编辑",
-        
-        // View menu
-        ("zh-CN", "View") => "查看",
+        ("zh-CN", "Cut") => "剪切",
+        ("zh-CN", "Copy") => "复制",
+        ("zh-CN", "Paste") => "粘贴",
+        ("zh-CN", "Select All") => "全选",
         ("zh-CN", "Toggle Sidebar") => "切换侧边栏",
         ("zh-CN", "Zoom In") => "放大",
         ("zh-CN", "Zoom Out") => "缩小",
         ("zh-CN", "Reset Zoom") => "重置缩放",
         ("zh-CN", "Toggle Fullscreen") => "切换全屏",
-        
-        // Window menu
-        ("zh-CN", "Window") => "窗口",
+        ("zh-CN", "AI Settings") => "AI 设置",
         ("zh-CN", "Minimize") => "最小化",
         ("zh-CN", "Close Window") => "关闭窗口",
-        
-        // Help menu
-        ("zh-CN", "Help") => "帮助",
         ("zh-CN", "Keyboard Shortcuts") => "键盘快捷键",
         ("zh-CN", "About ExcaliApp") => "关于 ExcaliApp",
-        
-        // Language menu
-        ("zh-CN", "Language") => "语言",
-        ("zh-CN", "Chinese") => "中文",
-        ("zh-CN", "English") => "English",
-        
-        // Default to English
-        _ => match key {
-            "File" => "File",
-            "Open Directory" => "Open Directory",
-            "New File" => "New File",
-            "Save" => "Save",
-            "Save As..." => "Save As...",
-            "Recent Directories" => "Recent Directories",
-            "Clear Recent" => "Clear Recent",
-            "Quit" => "Quit",
-            "Edit" => "Edit",
-            "View" => "View",
-            "Toggle Sidebar" => "Toggle Sidebar",
-            "Zoom In" => "Zoom In",
-            "Zoom Out" => "Zoom Out",
-            "Reset Zoom" => "Reset Zoom",
-            "Toggle Fullscreen" => "Toggle Fullscreen",
-            "Window" => "Window",
-            "Minimize" => "Minimize",
-            "Close Window" => "Close Window",
-            "Help" => "Help",
-            "Keyboard Shortcuts" => "Keyboard Shortcuts",
-            "About ExcaliApp" => "About ExcaliApp",
-            "Language" => "Language",
-            "Chinese" => "Chinese",
-            "English" => "English",
-            _ => key,
+        ("en-US", "File") => "File",
+        ("en-US", "Edit") => "Edit", 
+        ("en-US", "Layout") => "Layout",
+        ("en-US", "View") => "View",
+        ("en-US", "Language") => "Language",
+        ("en-US", "Preferences") => "Preferences",
+        ("en-US", "Window") => "Window",
+        ("en-US", "Help") => "Help",
+        ("en-US", "layout_mrtree") => "🔀 Symmetric Flowchart",
+        ("en-US", "layout_layered") => "📋 Sequential Steps",
+        ("en-US", "layout_box") => "📦 Compact Architecture",
+        ("en-US", "layout_stress") => "🕸️ Network Relations",
+        ("en-US", "layout_grid") => "⚏ Clean Grid",
+        ("en-US", "auto_layout") => "🎯 Smart Layout Selection...",
+        ("en-US", "Open Directory") => "Open Directory",
+        ("en-US", "New File") => "New File",
+        ("en-US", "Save") => "Save",
+        ("en-US", "Save As...") => "Save As...",
+        ("en-US", "Recent Directories") => "Recent Directories",
+        ("en-US", "Clear Recent") => "Clear Recent",
+        ("en-US", "Quit") => "Quit",
+        ("en-US", "Cut") => "Cut",
+        ("en-US", "Copy") => "Copy",
+        ("en-US", "Paste") => "Paste",
+        ("en-US", "Select All") => "Select All",
+        ("en-US", "Toggle Sidebar") => "Toggle Sidebar",
+        ("en-US", "Zoom In") => "Zoom In",
+        ("en-US", "Zoom Out") => "Zoom Out",
+        ("en-US", "Reset Zoom") => "Reset Zoom",
+        ("en-US", "Toggle Fullscreen") => "Toggle Fullscreen",
+        ("en-US", "AI Settings") => "AI Settings",
+        ("en-US", "Minimize") => "Minimize",
+        ("en-US", "Close Window") => "Close Window",
+        ("en-US", "Keyboard Shortcuts") => "Keyboard Shortcuts",
+        ("en-US", "About ExcaliApp") => "About ExcaliApp",
+        // Fallback to English for unknown keys
+        (_, "File") => "File",
+        (_, "Edit") => "Edit",
+        (_, "Layout") => "Layout", 
+        (_, "View") => "View",
+        (_, "Language") => "Language",
+        (_, "Preferences") => "Preferences",
+        (_, "Window") => "Window",
+        (_, "Help") => "Help",
+        (_, "layout_mrtree") => "🔀 Symmetric Flowchart",
+        (_, "layout_layered") => "📋 Sequential Steps",
+        (_, "layout_box") => "📦 Compact Architecture",
+        (_, "layout_stress") => "🕸️ Network Relations",
+        (_, "layout_grid") => "⚏ Clean Grid",
+        (_, "auto_layout") => "🎯 Smart Layout Selection...",
+        _ => "Unknown"
+    }
+}
+
+// Get current locale from app state or default to Chinese
+fn get_current_locale<R: Runtime>(app: &AppHandle<R>) -> String {
+    // Try to read from the i18n store, default to Chinese
+    use tauri_plugin_store::StoreExt;
+    
+    if let Ok(store) = app.store("i18n-store.json") {
+        if let Some(value) = store.get("state") {
+            if let Ok(state) = serde_json::from_value::<serde_json::Value>(value.clone()) {
+                if let Some(config) = state.get("config") {
+                    if let Some(lang) = config.get("currentLanguage") {
+                        if let Some(lang_str) = lang.as_str() {
+                            return lang_str.to_string();
+                        }
+                    }
+                }
+            }
         }
     }
+    
+    "zh-CN".to_string()
+}
+
+fn create_language_menu<R: Runtime>(
+    app: &AppHandle<R>,
+) -> Result<Submenu<R>, Box<dyn std::error::Error>> {
+    let locale = get_current_locale(app);
+    
+    let chinese = MenuItemBuilder::with_id("language_zh_CN", "🇨🇳 中文 (Chinese)")
+        .build(app)?;
+    
+    let english = MenuItemBuilder::with_id("language_en_US", "🇺🇸 English")
+        .build(app)?;
+
+    let language_menu = SubmenuBuilder::new(app, get_menu_text("Language", &locale))
+        .items(&[&chinese, &english])
+        .build()?;
+
+    Ok(language_menu)
 }
 
 pub fn create_menu<R: Runtime>(app: &AppHandle<R>) -> Result<Menu<R>, Box<dyn std::error::Error>> {
     let file_menu = create_file_menu(app)?;
     let edit_menu = create_edit_menu(app)?;
+    let layout_menu = create_layout_menu(app)?;
     let view_menu = create_view_menu(app)?;
+    let language_menu = create_language_menu(app)?;
+    let preferences_menu = create_preferences_menu(app)?;
     let window_menu = create_window_menu(app)?;
     let help_menu = create_help_menu(app)?;
 
     let menu = MenuBuilder::new(app)
-        .items(&[&file_menu, &edit_menu, &view_menu, &window_menu, &help_menu])
+        .items(&[&file_menu, &edit_menu, &layout_menu, &view_menu, &language_menu, &preferences_menu, &window_menu, &help_menu])
         .build()?;
 
     Ok(menu)
@@ -117,19 +168,20 @@ pub fn create_menu<R: Runtime>(app: &AppHandle<R>) -> Result<Menu<R>, Box<dyn st
 fn create_file_menu<R: Runtime>(
     app: &AppHandle<R>,
 ) -> Result<Submenu<R>, Box<dyn std::error::Error>> {
-    let open_directory = MenuItemBuilder::with_id("open_directory", "Open Directory")
+    let locale = get_current_locale(app);
+    let open_directory = MenuItemBuilder::with_id("open_directory", get_menu_text("Open Directory", &locale))
         .accelerator("CmdOrCtrl+O")
         .build(app)?;
 
-    let new_file = MenuItemBuilder::with_id("new_file", "New File")
+    let new_file = MenuItemBuilder::with_id("new_file", get_menu_text("New File", &locale))
         .accelerator("CmdOrCtrl+N")
         .build(app)?;
 
-    let save = MenuItemBuilder::with_id("save", "Save")
+    let save = MenuItemBuilder::with_id("save", get_menu_text("Save", &locale))
         .accelerator("CmdOrCtrl+S")
         .build(app)?;
 
-    let save_as = MenuItemBuilder::with_id("save_as", "Save As...")
+    let save_as = MenuItemBuilder::with_id("save_as", get_menu_text("Save As...", &locale))
         .accelerator("CmdOrCtrl+Shift+S")
         .build(app)?;
 
@@ -148,7 +200,7 @@ fn create_file_menu<R: Runtime>(
     #[cfg(target_os = "macos")]
     let quit = PredefinedMenuItem::quit(app, None)?;
 
-    let file_menu = SubmenuBuilder::new(app, "File")
+    let file_menu = SubmenuBuilder::new(app, get_menu_text("File", &locale))
         .items(&[
             &open_directory,
             &new_file,
@@ -168,7 +220,8 @@ fn create_file_menu<R: Runtime>(
 fn create_recent_directories_menu<R: Runtime>(
     app: &AppHandle<R>,
 ) -> Result<Submenu<R>, Box<dyn std::error::Error>> {
-    let recent_menu = SubmenuBuilder::new(app, "Recent Directories")
+    let locale = get_current_locale(app);
+    let recent_menu = SubmenuBuilder::new(app, get_menu_text("Recent Directories", &locale))
         .id(MenuId::from("recent_directories"))
         .build()?;
 
@@ -179,13 +232,14 @@ fn create_recent_directories_menu<R: Runtime>(
 fn create_edit_menu<R: Runtime>(
     app: &AppHandle<R>,
 ) -> Result<Submenu<R>, Box<dyn std::error::Error>> {
+    let locale = get_current_locale(app);
     // Use predefined menu items for proper system clipboard integration
     let cut = PredefinedMenuItem::cut(app, None)?;
     let copy = PredefinedMenuItem::copy(app, None)?;
     let paste = PredefinedMenuItem::paste(app, None)?;
     let select_all = PredefinedMenuItem::select_all(app, None)?;
 
-    let edit_menu = SubmenuBuilder::new(app, "Edit")
+    let edit_menu = SubmenuBuilder::new(app, get_menu_text("Edit", &locale))
         .items(&[
             &cut,
             &copy,
@@ -198,40 +252,82 @@ fn create_edit_menu<R: Runtime>(
     Ok(edit_menu)
 }
 
+fn create_layout_menu<R: Runtime>(
+    app: &AppHandle<R>,
+) -> Result<Submenu<R>, Box<dyn std::error::Error>> {
+    let locale = get_current_locale(app);
+    
+    let flowchart_layout = MenuItemBuilder::with_id("layout_mrtree", get_menu_text("layout_mrtree", &locale))
+        .build(app)?;
+    
+    let sequence_layout = MenuItemBuilder::with_id("layout_layered", get_menu_text("layout_layered", &locale))
+        .build(app)?;
+    
+    let architecture_layout = MenuItemBuilder::with_id("layout_box", get_menu_text("layout_box", &locale))
+        .build(app)?;
+    
+    let network_layout = MenuItemBuilder::with_id("layout_stress", get_menu_text("layout_stress", &locale))
+        .build(app)?;
+    
+    let grid_layout = MenuItemBuilder::with_id("layout_grid", get_menu_text("layout_grid", &locale))
+        .build(app)?;
+
+    let separator = PredefinedMenuItem::separator(app)?;
+    
+    let auto_layout = MenuItemBuilder::with_id("auto_layout", get_menu_text("auto_layout", &locale))
+        .accelerator("Ctrl+Shift+L")
+        .build(app)?;
+
+    let layout_menu = SubmenuBuilder::new(app, get_menu_text("Layout", &locale))
+        .items(&[
+            &flowchart_layout,
+            &sequence_layout,
+            &architecture_layout,
+            &network_layout,
+            &grid_layout,
+            &separator,
+            &auto_layout,
+        ])
+        .build()?;
+
+    Ok(layout_menu)
+}
+
 fn create_view_menu<R: Runtime>(
     app: &AppHandle<R>,
 ) -> Result<Submenu<R>, Box<dyn std::error::Error>> {
-    let toggle_sidebar = MenuItemBuilder::with_id("toggle_sidebar", "Toggle Sidebar")
+    let locale = get_current_locale(app);
+    let toggle_sidebar = MenuItemBuilder::with_id("toggle_sidebar", get_menu_text("Toggle Sidebar", &locale))
         .accelerator("CmdOrCtrl+B")
         .build(app)?;
 
     let separator = PredefinedMenuItem::separator(app)?;
 
-    let zoom_in = MenuItemBuilder::with_id("zoom_in", "Zoom In")
+    let zoom_in = MenuItemBuilder::with_id("zoom_in", get_menu_text("Zoom In", &locale))
         .accelerator("CmdOrCtrl+Plus")
         .build(app)?;
 
-    let zoom_out = MenuItemBuilder::with_id("zoom_out", "Zoom Out")
+    let zoom_out = MenuItemBuilder::with_id("zoom_out", get_menu_text("Zoom Out", &locale))
         .accelerator("CmdOrCtrl+-")
         .build(app)?;
 
-    let reset_zoom = MenuItemBuilder::with_id("reset_zoom", "Reset Zoom")
+    let reset_zoom = MenuItemBuilder::with_id("reset_zoom", get_menu_text("Reset Zoom", &locale))
         .accelerator("CmdOrCtrl+0")
         .build(app)?;
 
     let separator2 = PredefinedMenuItem::separator(app)?;
 
     #[cfg(target_os = "macos")]
-    let fullscreen = MenuItemBuilder::with_id("fullscreen", "Toggle Fullscreen")
+    let fullscreen = MenuItemBuilder::with_id("fullscreen", get_menu_text("Toggle Fullscreen", &locale))
         .accelerator("Ctrl+Cmd+F")
         .build(app)?;
 
     #[cfg(not(target_os = "macos"))]
-    let fullscreen = MenuItemBuilder::with_id("fullscreen", "Toggle Fullscreen")
+    let fullscreen = MenuItemBuilder::with_id("fullscreen", get_menu_text("Toggle Fullscreen", &locale))
         .accelerator("F11")
         .build(app)?;
 
-    let view_menu = SubmenuBuilder::new(app, "View")
+    let view_menu = SubmenuBuilder::new(app, get_menu_text("View", &locale))
         .items(&[
             &toggle_sidebar,
             &separator,
@@ -246,14 +342,30 @@ fn create_view_menu<R: Runtime>(
     Ok(view_menu)
 }
 
+
+fn create_preferences_menu<R: Runtime>(
+    app: &AppHandle<R>,
+) -> Result<Submenu<R>, Box<dyn std::error::Error>> {
+    let locale = get_current_locale(app);
+    let ai_settings = MenuItemBuilder::with_id("ai_settings", get_menu_text("AI Settings", &locale))
+        .build(app)?;
+
+    let preferences_menu = SubmenuBuilder::new(app, get_menu_text("Preferences", &locale))
+        .items(&[&ai_settings])
+        .build()?;
+
+    Ok(preferences_menu)
+}
+
 fn create_window_menu<R: Runtime>(
     app: &AppHandle<R>,
 ) -> Result<Submenu<R>, Box<dyn std::error::Error>> {
+    let locale = get_current_locale(app);
     #[cfg(target_os = "macos")]
     let minimize = PredefinedMenuItem::minimize(app, None)?;
 
     #[cfg(not(target_os = "macos"))]
-    let minimize = MenuItemBuilder::with_id("minimize", "Minimize")
+    let minimize = MenuItemBuilder::with_id("minimize", get_menu_text("Minimize", &locale))
         .accelerator("CmdOrCtrl+M")
         .build(app)?;
 
@@ -261,11 +373,11 @@ fn create_window_menu<R: Runtime>(
     let close_window = PredefinedMenuItem::close_window(app, None)?;
 
     #[cfg(not(target_os = "macos"))]
-    let close_window = MenuItemBuilder::with_id("close_window", "Close Window")
+    let close_window = MenuItemBuilder::with_id("close_window", get_menu_text("Close Window", &locale))
         .accelerator("CmdOrCtrl+W")
         .build(app)?;
 
-    let window_menu = SubmenuBuilder::new(app, "Window")
+    let window_menu = SubmenuBuilder::new(app, get_menu_text("Window", &locale))
         .items(&[&minimize, &close_window])
         .build()?;
 
@@ -275,14 +387,15 @@ fn create_window_menu<R: Runtime>(
 fn create_help_menu<R: Runtime>(
     app: &AppHandle<R>,
 ) -> Result<Submenu<R>, Box<dyn std::error::Error>> {
+    let locale = get_current_locale(app);
     let keyboard_shortcuts =
-        MenuItemBuilder::with_id("keyboard_shortcuts", "Keyboard Shortcuts").build(app)?;
+        MenuItemBuilder::with_id("keyboard_shortcuts", get_menu_text("Keyboard Shortcuts", &locale)).build(app)?;
 
     let separator = PredefinedMenuItem::separator(app)?;
 
     let about = PredefinedMenuItem::about(
         app,
-        Some("About ExcaliApp"),
+        Some(get_menu_text("About ExcaliApp", &locale)),
         Some(
             AboutMetadataBuilder::new()
                 .version(Some(env!("CARGO_PKG_VERSION").to_string()))
@@ -294,7 +407,7 @@ fn create_help_menu<R: Runtime>(
         ),
     )?;
 
-    let help_menu = SubmenuBuilder::new(app, "Help")
+    let help_menu = SubmenuBuilder::new(app, get_menu_text("Help", &locale))
         .items(&[&keyboard_shortcuts, &separator, &about])
         .build()?;
 

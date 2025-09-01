@@ -4,6 +4,7 @@ import { cn } from '../lib/utils'
 import { FileTreeNode } from '../types'
 import { useStore } from '../store/useStore'
 import { useDialog } from '../contexts/DialogContext'
+import { useTranslation } from '../store/useI18nStore'
 
 interface TreeViewProps {
   nodes: FileTreeNode[]
@@ -31,6 +32,7 @@ const TreeNode = memo(function TreeNode({ node, onFileClick, activeFilePath, dep
   const renameInputRef = useRef<HTMLInputElement>(null)
   const { renameFile, renameDirectory, deleteFile, deleteDirectory, moveFile } = useStore()
   const { showDialog } = useDialog()
+  const { t } = useTranslation()
   
   // 全局拖拽状态
   const [globalDragData, setGlobalDragData] = useState<{filePath: string, startNode: string} | null>(null)
@@ -253,21 +255,13 @@ const TreeNode = memo(function TreeNode({ node, onFileClick, activeFilePath, dep
     try {
       // Use enhanced confirmation dialog
       const confirmed = await showDialog({
-        title: `🗑️ Delete ${itemType}`,
+        title: node.is_directory ? t('dialog.deleteConfirm.folderTitle') : t('dialog.deleteConfirm.fileTitle'),
         message: node.is_directory 
-          ? `⚠️ DANGER: This will permanently delete the folder "${itemName}" and ALL files inside it.
-
-This action cannot be undone!
-
-Are you absolutely sure?`
-          : `⚠️ This will permanently delete the file "${itemName}".
-
-This action cannot be undone!
-
-Are you sure?`,
+          ? t('dialog.deleteConfirm.folderMessage', { folderName: itemName })
+          : t('dialog.deleteConfirm.fileMessage', { fileName: itemName }),
         type: 'warning',
-        confirmLabel: `🗑️ Yes, Delete ${itemType}`,
-        cancelLabel: '❌ Cancel',
+        confirmLabel: t('dialog.deleteConfirm.confirmDelete', { itemType }),
+        cancelLabel: t('dialog.deleteConfirm.cancel'),
         showCancel: true
       })
       
@@ -288,7 +282,7 @@ Are you sure?`,
           console.error('❌ Failed to delete:', error)
           // Use Tauri dialog for error too
           const { message } = await import('@tauri-apps/plugin-dialog')
-          await message(`Failed to delete ${itemType}: ${error}`, { title: 'Error', kind: 'error' })
+          await message(t('dialog.errors.deleteFailed', { itemType, error: String(error) }), { title: t('dialog.error'), kind: 'error' })
         }
       } else {
         console.log('❌ User cancelled, item NOT deleted:', itemName)
@@ -397,7 +391,7 @@ Are you sure?`,
       console.error('❌ Failed to move file:', error)
       // Show error message to user
       const { message } = await import('@tauri-apps/plugin-dialog')
-      await message(`Failed to move file: ${error}`, { title: 'Error', kind: 'error' })
+      await message(t('dialog.errors.moveFailed', { error: String(error) }), { title: t('dialog.error'), kind: 'error' })
     }
   }
   
@@ -541,7 +535,7 @@ Are you sure?`,
                 
                 // 创建子文件夹
                 try {
-                  const defaultFolderName = `New Folder ${Date.now()}`
+                  const defaultFolderName = t('dialog.treeOperations.newFolder', { timestamp: Date.now() })
                   const { createDirectory } = useStore.getState()
                   await createDirectory(node.path, defaultFolderName)
                   console.log('子文件夹创建成功')
@@ -552,7 +546,7 @@ Are you sure?`,
               className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
             >
               <FolderPlus className="w-3 h-3" />
-              New Subfolder
+              {t('dialog.treeOperations.newSubfolder')}
             </button>
           )}
           <button
@@ -564,7 +558,7 @@ Are you sure?`,
             className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
           >
             <Edit2 className="w-3 h-3" />
-            Rename
+            {t('dialog.treeOperations.rename')}
           </button>
           <button
             onClick={(e) => {
@@ -574,7 +568,7 @@ Are you sure?`,
             className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-red-600"
           >
             <Trash2 className="w-3 h-3" />
-            Delete {node.is_directory ? 'Folder' : 'File'}
+            {node.is_directory ? t('dialog.treeOperations.deleteFolder') : t('dialog.treeOperations.deleteFile')}
           </button>
         </div>
       )}
