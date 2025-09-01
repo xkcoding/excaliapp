@@ -16,7 +16,17 @@ function App() {
   const { loadPreferences, loadDirectory, currentDirectory, sidebarVisible, isDirty, saveCurrentFile, toggleSidebar, activeFile } = useStore()
   const { showDialog } = useDialog()
   const { initialize: initializeI18n, isLoading: i18nLoading } = useI18nStore()
-  const { t } = useTranslation()
+  const { t: rawT } = useTranslation()
+  
+  // Safe translation function that won't crash if i18n isn't ready
+  const t = (key: string, params?: any) => {
+    try {
+      return rawT(key, params)
+    } catch (error) {
+      console.warn('Translation failed for key:', key, error)
+      return key // Fallback to key itself
+    }
+  }
   const [isAISettingsOpen, setIsAISettingsOpen] = useState(false)
   const [isI18nInitialized, setIsI18nInitialized] = useState(false)
 
@@ -25,14 +35,26 @@ function App() {
   useEffect(() => {
     const initializeApp = async () => {
       try {
+        console.log('🚀 App starting initialization...')
         await loadPreferences()
+        console.log('✅ Preferences loaded')
+        
         console.log('🌐 Initializing i18n...')
         await initializeI18n()
-        console.log('🌐 i18n initialized, testing translation:', t('app.name'))
-        setIsI18nInitialized(true)
+        console.log('✅ i18n initialized successfully')
+        
+        // Add a small delay to ensure everything is ready
+        setTimeout(() => {
+          setIsI18nInitialized(true)
+          console.log('✅ App initialization complete')
+        }, 100)
       } catch (error) {
-        console.error('Failed to initialize app:', error)
-        setIsI18nInitialized(true) // Continue even if failed
+        console.error('❌ Failed to initialize app:', error)
+        // Even if failed, still show the app to prevent infinite loading
+        setTimeout(() => {
+          setIsI18nInitialized(true)
+          console.log('⚠️ App forced to continue despite errors')
+        }, 1000)
       }
     }
     initializeApp()
@@ -164,6 +186,18 @@ function App() {
   
   // Setup menu handler (NOTE: ExcalidrawEditor will set the Excalidraw API)
   useMenuHandler()
+
+  // Emergency fallback - if stuck loading for too long, force show app
+  useEffect(() => {
+    const emergencyTimeout = setTimeout(() => {
+      if (!isI18nInitialized) {
+        console.warn('⚠️ Emergency timeout - forcing app to show')
+        setIsI18nInitialized(true)
+      }
+    }, 5000) // 5 second emergency timeout
+
+    return () => clearTimeout(emergencyTimeout)
+  }, [isI18nInitialized])
 
   // Show loading screen while i18n is initializing
   if (!isI18nInitialized || i18nLoading) {
