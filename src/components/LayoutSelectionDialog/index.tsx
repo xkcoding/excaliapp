@@ -5,10 +5,10 @@
 
 import { useState } from 'react'
 import { useTranslation } from '../../store/useI18nStore'
-import type { LayoutAlgorithm } from '../../types/layout'
+import type { LayoutAlgorithmType } from '../../types/layout'
 
 interface LayoutOption {
-  id: LayoutAlgorithm
+  id: LayoutAlgorithmType
   name: string
   description: string
   icon: string
@@ -20,7 +20,7 @@ interface LayoutOption {
 interface LayoutSelectionDialogProps {
   isOpen: boolean
   onClose: () => void
-  onSelect: (algorithm: LayoutAlgorithm, spacing: { x: number; y: number }, direction?: string) => void
+  onSelect: (algorithm: LayoutAlgorithmType, spacing: { x: number; y: number }, direction?: string) => void
   elementCount: number
 }
 
@@ -39,7 +39,7 @@ export function LayoutSelectionDialog({
       name: t('layout.dialog.algorithms.mrtree.name'),
       description: t('layout.dialog.algorithms.mrtree.description'),
       icon: '🔀',
-      bestFor: t('layout.dialog.algorithms.mrtree.bestFor'),
+      bestFor: [t('layout.dialog.algorithms.mrtree.bestFor')],
       spacing: { x: 120, y: 100 },
       direction: 'DOWN'
     },
@@ -48,7 +48,7 @@ export function LayoutSelectionDialog({
       name: t('layout.dialog.algorithms.layered.name'),
       description: t('layout.dialog.algorithms.layered.description'),
       icon: '📋',
-      bestFor: t('layout.dialog.algorithms.layered.bestFor'),
+      bestFor: [t('layout.dialog.algorithms.layered.bestFor')],
       spacing: { x: 150, y: 80 },
       direction: 'DOWN'
     },
@@ -57,7 +57,7 @@ export function LayoutSelectionDialog({
       name: t('layout.dialog.algorithms.box.name'),
       description: t('layout.dialog.algorithms.box.description'),
       icon: '📦',
-      bestFor: t('layout.dialog.algorithms.box.bestFor'),
+      bestFor: [t('layout.dialog.algorithms.box.bestFor')],
       spacing: { x: 100, y: 80 }
     },
     {
@@ -65,7 +65,7 @@ export function LayoutSelectionDialog({
       name: t('layout.dialog.algorithms.stress.name'),
       description: t('layout.dialog.algorithms.stress.description'),
       icon: '🕸️',
-      bestFor: t('layout.dialog.algorithms.stress.bestFor'),
+      bestFor: [t('layout.dialog.algorithms.stress.bestFor')],
       spacing: { x: 100, y: 100 }
     },
     {
@@ -73,7 +73,7 @@ export function LayoutSelectionDialog({
       name: t('layout.dialog.algorithms.grid.name'),
       description: t('layout.dialog.algorithms.grid.description'),
       icon: '⚏',
-      bestFor: t('layout.dialog.algorithms.grid.bestFor'),
+      bestFor: [t('layout.dialog.algorithms.grid.bestFor')],
       spacing: { x: 80, y: 80 }
     }
   ]

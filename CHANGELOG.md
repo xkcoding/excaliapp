@@ -1,5 +1,95 @@
 # OwnExcaliDesk Changelog
 
+## 🤖 v0.3.0 - AI Chart Generation & Intelligent Layout (2025-09-01)
+
+### 🎨 Perfect Handwritten Font Rendering
+
+**✍️ Excalidraw Handwriting Font Fix**
+- Fixed missing font files causing system default font display
+- Complete integration of Virgil, Cascadia, Assistant handwriting fonts
+- Configured EXCALIDRAW_ASSET_PATH for self-hosted font loading
+- Optimized CSP security policy for production font and WASM resources
+- Consistent font display between development and production modes
+
+### ✨ AI-Powered Chart Generation
+
+**🧠 Text to Chart - Natural Language to Diagrams**
+- Generate professional Mermaid charts from natural language descriptions
+- Intelligent chart type recognition: flowcharts, sequence diagrams, class diagrams, state diagrams
+- Real-time streaming code generation with live preview
+- Editable Mermaid code with manual fine-tuning capabilities
+- Comprehensive error handling and syntax validation
+
+**⚙️ AI Configuration Management**
+- Support for OpenAI, Azure, and custom API providers
+- Secure API key storage and connection validation
+- Intelligent token estimation and usage control
+- Streaming and non-streaming generation modes
+
+### 🎯 Auto Layout Intelligence System
+
+**🔧 Professional elkjs Layout Engine**
+- Integrated professional graph layout engine with 6 layout algorithms
+- Intelligent pattern recognition: automatically detects chart types and selects optimal algorithms
+- One-click optimization: MainMenu → Layout Tools → Auto Layout
+- Support for complex diagrams: architecture, flowcharts, sequence, class, and network diagrams
+
+**🧠 Smart Pattern Detection**
+- Sequence diagrams: detects horizontal actors + vertical message flow → Layered algorithm
+- Architecture diagrams: many boxes, few arrows, box/arrow ratio>3 → Box algorithm
+- Business flows: decision nodes + linear flow → Layered algorithm  
+- Class diagrams: inheritance hierarchy structure → MrTree algorithm
+- Complex networks: connection density>2 → Stress algorithm
+- General cases: no clear pattern → intelligent grid layout
+
+### 🌐 Complete Internationalization
+
+**🗣️ Multi-language Interface**
+- Full Chinese/English interface support with 250+ translation key-value pairs
+- Dynamic language switching with application restart mechanism
+- Automatic system language detection with intelligent defaults
+- AI prompt localization for generating native language charts
+
+**🎛️ Tauri Main Menu Internationalization**
+- Complete Rust-side menu dynamic language support
+- Language switching moved from settings to main menu for quick access
+- Chinese as default language, aligning with target user base
+
+### 🛠️ Technical Architecture Overhaul
+
+**📊 Intelligent Service Layer**
+- `LayoutService.ts` (558 lines) complete intelligent layout analysis system
+- `AIService.ts` (539 lines) enterprise-grade AI service integration
+- `MermaidConverter.ts` professional chart conversion engine
+- Complete TypeScript type system and error handling
+
+**⚡ Performance & Stability Optimization**
+- elkjs engine provides O(n log n) complexity, supports large-scale elements
+- Streaming AI responses with real-time feedback
+- Intelligent caching and error retry mechanisms
+- Complete undo/redo support
+
+---
+
+### 🚀 What This Means for You
+
+**For Creative Professionals:**
+- Generate professional diagrams from text descriptions, dramatically boosting productivity
+- One-click intelligent layout eliminates tedious manual positioning work
+- Multi-language interface support adapts to different work environments
+
+**For Professional Users:**
+- Professional-grade layout algorithms based on elkjs, rivaling specialized diagramming software
+- Support for complex diagram types meeting technical documentation needs
+- Customizable AI services, flexibly adapting to enterprise environments
+
+**For Everyone:**
+- Zero learning curve intelligent features, automating tedious operations
+- Complete Chinese interface for localized user experience
+- Enterprise-level stability and error handling mechanisms
+
+---
+
 ## 🎨 v0.2.0 - Enhanced Dialog Experience & File Management (2025-08-28)
 
 ### ✨ Major UI/UX Improvements

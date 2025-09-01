@@ -16,6 +16,59 @@ pub struct ExcalidrawFile {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AITestRequest {
+    pub base_url: String,
+    pub api_key: String,
+    pub model: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AITestResponse {
+    pub success: bool,
+    pub error_message: Option<String>,
+    pub response_data: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AIGenerateRequest {
+    pub base_url: String,
+    pub api_key: String,
+    pub model: String,
+    pub prompt: String,
+    pub max_tokens: u32,
+    pub temperature: f32,
+    pub stream: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AIGenerateResponse {
+    pub success: bool,
+    pub content: Option<String>,
+    pub error_message: Option<String>,
+    pub tokens_used: Option<u32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AIStreamRequest {
+    pub base_url: String,
+    pub api_key: String,
+    pub model: String,
+    pub prompt: String,
+    pub max_tokens: u32,
+    pub temperature: f32,
+    pub request_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AIStreamChunk {
+    pub request_id: String,
+    pub content: String,
+    pub finished: bool,
+}
+
+
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct FileTreeNode {
     pub name: String,
     pub path: String,
@@ -46,6 +99,360 @@ impl Default for Preferences {
 pub struct AppState {
     pub current_directory: Mutex<Option<PathBuf>>,
     pub modified_files: Mutex<Vec<String>>,
+}
+
+#[tauri::command]
+async fn test_ai_connection(request: AITestRequest) -> Result<AITestResponse, String> {
+    println!("Testing AI connection to: {}", request.base_url);
+    
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+
+    let test_payload = serde_json::json!({
+        "model": request.model,
+        "messages": [{"role": "user", "content": "你好"}],
+        "max_tokens": 10,
+        "temperature": 0.1
+    });
+
+    let url = format!("{}/chat/completions", request.base_url);
+    println!("Making request to: {}", url);
+
+    match client
+        .post(&url)
+        .header("Content-Type", "application/json")
+        .header("Authorization", format!("Bearer {}", request.api_key))
+        .json(&test_payload)
+        .send()
+        .await
+    {
+        Ok(response) => {
+            let status = response.status();
+            println!("Response status: {}", status);
+            
+            if status.is_success() {
+                match response.json::<serde_json::Value>().await {
+                    Ok(data) => {
+                        println!("Success response: {:?}", data);
+                        Ok(AITestResponse {
+                            success: true,
+                            error_message: None,
+                            response_data: Some(data),
+                        })
+                    }
+                    Err(e) => {
+                        let error_msg = format!("Failed to parse response: {}", e);
+                        println!("Parse error: {}", error_msg);
+                        Ok(AITestResponse {
+                            success: false,
+                            error_message: Some(error_msg),
+                            response_data: None,
+                        })
+                    }
+                }
+            } else {
+                let error_msg = match response.text().await {
+                    Ok(text) => format!("HTTP {}: {}", status, text),
+                    Err(_) => format!("HTTP {} error", status),
+                };
+                println!("HTTP error: {}", error_msg);
+                Ok(AITestResponse {
+                    success: false,
+                    error_message: Some(error_msg),
+                    response_data: None,
+                })
+            }
+        }
+        Err(e) => {
+            let error_msg = format!("Request failed: {}", e);
+            println!("Request error: {}", error_msg);
+            Ok(AITestResponse {
+                success: false,
+                error_message: Some(error_msg),
+                response_data: None,
+            })
+        }
+    }
+}
+
+
+
+#[tauri::command]
+async fn call_ai_api(request: AIGenerateRequest) -> Result<AIGenerateResponse, String> {
+    println!("Calling AI API: {} (stream: {})", request.base_url, request.stream);
+    
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+
+    let payload = serde_json::json!({
+        "model": request.model,
+        "messages": [{"role": "user", "content": request.prompt}],
+        "max_tokens": request.max_tokens,
+        "temperature": request.temperature,
+        "stream": request.stream
+    });
+
+    let url = format!("{}/chat/completions", request.base_url);
+    println!("Making AI generation request to: {}", url);
+
+    let response = client
+        .post(&url)
+        .header("Content-Type", "application/json")
+        .header("Authorization", format!("Bearer {}", request.api_key))
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|e| format!("Request failed: {}", e))?;
+
+    let status = response.status();
+    println!("AI API response status: {}", status);
+    
+    if !status.is_success() {
+        let error_text = response.text().await.unwrap_or_default();
+        return Ok(AIGenerateResponse {
+            success: false,
+            content: None,
+            error_message: Some(format!("HTTP {}: {}", status, error_text)),
+            tokens_used: None,
+        });
+    }
+
+    if request.stream {
+        // Handle streaming response
+        use futures_util::StreamExt;
+        
+        let mut stream = response.bytes_stream();
+        let mut accumulated_content = String::new();
+        let mut buffer = String::new();
+        
+        while let Some(chunk) = stream.next().await {
+            match chunk {
+                Ok(bytes) => {
+                    let chunk_str = String::from_utf8_lossy(&bytes);
+                    buffer.push_str(&chunk_str);
+                    
+                    // Process complete lines
+                    while let Some(newline_pos) = buffer.find("\n") {
+                        let line = buffer[..newline_pos].trim().to_string();
+                        buffer.drain(..=newline_pos);
+                        
+                        if line.starts_with("data: ") {
+                            let data_part = &line[6..]; // Remove "data: " prefix
+                            
+                            if data_part == "[DONE]" {
+                                break;
+                            }
+                            
+                            // Parse JSON chunk
+                            if let Ok(chunk_data) = serde_json::from_str::<serde_json::Value>(data_part) {
+                                if let Some(choices) = chunk_data.get("choices").and_then(|c| c.as_array()) {
+                                    if let Some(choice) = choices.first() {
+                                        if let Some(delta) = choice.get("delta") {
+                                            if let Some(content) = delta.get("content").and_then(|c| c.as_str()) {
+                                                accumulated_content.push_str(content);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    return Ok(AIGenerateResponse {
+                        success: false,
+                        content: None,
+                        error_message: Some(format!("Stream error: {}", e)),
+                        tokens_used: None,
+                    });
+                }
+            }
+        }
+        
+        if accumulated_content.is_empty() {
+            return Ok(AIGenerateResponse {
+                success: false,
+                content: None,
+                error_message: Some("No content received from streaming response".to_string()),
+                tokens_used: None,
+            });
+        }
+        
+        println!("Streaming generation successful, content length: {}", accumulated_content.len());
+        Ok(AIGenerateResponse {
+            success: true,
+            content: Some(accumulated_content),
+            error_message: None,
+            tokens_used: None,
+        })
+    } else {
+        // Handle non-streaming response (existing logic)
+        match response.json::<serde_json::Value>().await {
+            Ok(data) => {
+                if let Some(choices) = data.get("choices").and_then(|c| c.as_array()) {
+                    if let Some(first_choice) = choices.first() {
+                        if let Some(message) = first_choice.get("message") {
+                            if let Some(content) = message.get("content").and_then(|c| c.as_str()) {
+                                let tokens_used = data.get("usage")
+                                    .and_then(|u| u.get("total_tokens"))
+                                    .and_then(|t| t.as_u64())
+                                    .map(|t| t as u32);
+                                
+                                println!("AI generation successful, content length: {}", content.len());
+                                return Ok(AIGenerateResponse {
+                                    success: true,
+                                    content: Some(content.to_string()),
+                                    error_message: None,
+                                    tokens_used,
+                                });
+                            }
+                        }
+                    }
+                }
+                
+                let error_msg = "Invalid response format: no content found".to_string();
+                println!("Response parsing error: {}", error_msg);
+                Ok(AIGenerateResponse {
+                    success: false,
+                    content: None,
+                    error_message: Some(error_msg),
+                    tokens_used: None,
+                })
+            }
+            Err(e) => {
+                let error_msg = format!("Failed to parse response: {}", e);
+                println!("JSON parse error: {}", error_msg);
+                Ok(AIGenerateResponse {
+                    success: false,
+                    content: None,
+                    error_message: Some(error_msg),
+                    tokens_used: None,
+                })
+            }
+        }
+    }
+}
+
+#[tauri::command]
+async fn call_ai_api_stream(app: AppHandle, request: AIStreamRequest) -> Result<(), String> {
+    println!("Starting streaming AI API call: {} (request_id: {})", request.base_url, request.request_id);
+    
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+
+    let payload = serde_json::json!({
+        "model": request.model,
+        "messages": [{"role": "user", "content": request.prompt}],
+        "max_tokens": request.max_tokens,
+        "temperature": request.temperature,
+        "stream": true
+    });
+
+    let url = format!("{}/chat/completions", request.base_url);
+    println!("Making streaming request to: {}", url);
+
+    // Spawn async task to handle streaming
+    let app_clone = app.clone();
+    let request_id = request.request_id.clone();
+    
+    tauri::async_runtime::spawn(async move {
+        match client
+            .post(&url)
+            .header("Content-Type", "application/json")
+            .header("Authorization", format!("Bearer {}", request.api_key))
+            .json(&payload)
+            .send()
+            .await
+        {
+            Ok(response) => {
+                let status = response.status();
+                
+                if !status.is_success() {
+                    let error_text = response.text().await.unwrap_or_default();
+                    let _ = app_clone.emit("ai-stream-error", serde_json::json!({
+                        "request_id": request_id,
+                        "error": format!("HTTP {}: {}", status, error_text)
+                    }));
+                    return;
+                }
+
+                use futures_util::StreamExt;
+                let mut stream = response.bytes_stream();
+                let mut buffer = String::new();
+                
+                while let Some(chunk) = stream.next().await {
+                    match chunk {
+                        Ok(bytes) => {
+                            let chunk_str = String::from_utf8_lossy(&bytes);
+                            buffer.push_str(&chunk_str);
+                            
+                            // Process complete lines
+                            while let Some(newline_pos) = buffer.find("\n") {
+                                let line = buffer[..newline_pos].trim().to_string();
+                                buffer.drain(..=newline_pos);
+                                
+                                if line.starts_with("data: ") {
+                                    let data_part = &line[6..]; // Remove "data: " prefix
+                                    
+                                    if data_part == "[DONE]" {
+                                        // Send completion event
+                                        let _ = app_clone.emit("ai-stream-complete", serde_json::json!({
+                                            "request_id": request_id
+                                        }));
+                                        return;
+                                    }
+                                    
+                                    // Parse JSON chunk
+                                    if let Ok(chunk_data) = serde_json::from_str::<serde_json::Value>(data_part) {
+                                        if let Some(choices) = chunk_data.get("choices").and_then(|c| c.as_array()) {
+                                            if let Some(choice) = choices.first() {
+                                                if let Some(delta) = choice.get("delta") {
+                                                    if let Some(content) = delta.get("content").and_then(|c| c.as_str()) {
+                                                        // Emit chunk to frontend
+                                                        let _ = app_clone.emit("ai-stream-chunk", AIStreamChunk {
+                                                            request_id: request_id.clone(),
+                                                            content: content.to_string(),
+                                                            finished: false,
+                                                        });
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            let _ = app_clone.emit("ai-stream-error", serde_json::json!({
+                                "request_id": request_id,
+                                "error": format!("Stream error: {}", e)
+                            }));
+                            return;
+                        }
+                    }
+                }
+                
+                // If we reach here without [DONE], send completion anyway
+                let _ = app_clone.emit("ai-stream-complete", serde_json::json!({
+                    "request_id": request_id
+                }));
+            }
+            Err(e) => {
+                let _ = app_clone.emit("ai-stream-error", serde_json::json!({
+                    "request_id": request_id,
+                    "error": format!("Request failed: {}", e)
+                }));
+            }
+        }
+    });
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -791,6 +1198,10 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            test_ai_connection,
+            call_ai_api,
+            call_ai_api_stream,
+
             select_directory,
             list_excalidraw_files,
             get_file_tree,

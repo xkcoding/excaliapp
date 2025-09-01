@@ -417,28 +417,128 @@ export class LayoutService implements ILayoutService {
   }
 
   private registerAlgorithms() {
-    // 注册所有布局算法
-    this.algorithms.set('grid-align', {
-      id: 'grid-align',
-      name: '网格对齐',
-      description: '将元素对齐到网格',
-      icon: 'Grid',
+    // 智能布局算法 - 基于 elkjs 引擎
+    this.algorithms.set('auto-layout', {
+      id: 'auto-layout',
+      name: '智能布局',
+      description: '基于图表特征自动选择最佳布局算法',
+      icon: 'Sparkles',
       requiresSelection: true,
       minElements: 1,
-      apply: gridAlign,
-      configSchema: [
-        {
-          key: 'spacing',
-          type: 'slider',
-          label: '间距',
-          min: 10,
-          max: 100,
-          step: 5,
-          default: 20
-        }
-      ]
+      apply: this.intelligentLayout,
+      configSchema: []
     })
-    // ... 其他算法
+    
+    // elkjs 专业算法集
+    this.algorithms.set('box-layout', {
+      id: 'box-layout', 
+      name: '盒式布局',
+      description: '适用于架构图，矩形打包算法',
+      apply: (elements) => this.elkLayout(elements, 'box'),
+      spacing: { x: 120, y: 100 }
+    })
+    
+    this.algorithms.set('layered-layout', {
+      id: 'layered-layout',
+      name: '分层布局', 
+      description: '适用于流程图，层次化排列',
+      apply: (elements) => this.elkLayout(elements, 'layered'),
+      spacing: { x: 100, y: 60 }
+    })
+    
+    this.algorithms.set('tree-layout', {
+      id: 'tree-layout',
+      name: '树形布局',
+      description: '适用于类图，层次结构',
+      apply: (elements) => this.elkLayout(elements, 'mrtree'),
+      spacing: { x: 100, y: 120 }
+    })
+    
+    this.algorithms.set('force-layout', {
+      id: 'force-layout', 
+      name: '力导向布局',
+      description: '适用于复杂网状图',
+      apply: (elements) => this.elkLayout(elements, 'stress'),
+      spacing: { x: 100, y: 100 }
+    })
+  }
+
+  // 智能布局分析 - 基于 0003 规格
+  private analyzeLayoutPattern(
+    elements: ExcalidrawElement[], 
+    connections: Connection[]
+  ): LayoutAnalysisResult {
+    const boxCount = elements.filter(el => el.type === 'rectangle').length
+    const arrowCount = connections.length
+    const boxToArrowRatio = arrowCount > 0 ? boxCount / arrowCount : boxCount
+    
+    // 程序架构图：大量框图，箭头较少
+    if (boxToArrowRatio > 3 && boxCount > 5) {
+      return {
+        algorithm: 'box',
+        spacing: { x: 120, y: 100 },
+        preserveGroups: true
+      }
+    }
+    
+    // 时序图：参与者水平排列，消息垂直流动
+    if (this.hasHorizontalActors(elements) && this.hasVerticalMessages(connections)) {
+      return {
+        algorithm: 'layered',
+        direction: 'RIGHT',
+        spacing: { x: 150, y: 80 },
+        preserveGroups: false
+      }
+    }
+    
+    // 类图：继承层次结构
+    if (this.hasClassStructure(elements) && this.hasInheritanceConnections(connections)) {
+      return {
+        algorithm: 'mrtree',
+        direction: 'DOWN',
+        spacing: { x: 100, y: 120 },
+        preserveGroups: true
+      }
+    }
+    
+    // 复杂网状图：高连接密度
+    const connectionDensity = connections.length / elements.length
+    if (connectionDensity > 2) {
+      return {
+        algorithm: 'stress',
+        spacing: { x: 100, y: 100 },
+        preserveGroups: false
+      }
+    }
+    
+    // 业务流程图：决策流程
+    if (this.hasDecisionNodes(elements) && this.hasLinearFlow(connections)) {
+      return {
+        algorithm: 'layered',
+        direction: 'DOWN',
+        spacing: { x: 100, y: 60 },
+        preserveGroups: true
+      }
+    }
+    
+    // 默认：智能网格布局
+    return {
+      algorithm: 'grid',
+      spacing: { x: 80, y: 80 },
+      preserveGroups: true
+    }
+  }
+
+  // 智能布局主方法
+  private async intelligentLayout(elements: ExcalidrawElement[]): Promise<ExcalidrawElement[]> {
+    const connections = this.extractConnections(elements)
+    const analysis = this.analyzeLayoutPattern(elements, connections)
+    
+    return this.elkLayout(elements, analysis.algorithm, {
+      spacing: analysis.spacing,
+      direction: analysis.direction,
+      preserveGroups: analysis.preserveGroups
+    })
   }
 
   async applyLayout(
@@ -466,10 +566,27 @@ export class LayoutService implements ILayoutService {
       stats: {
         movedElements,
         totalElements: elements.length,
-        executionTime
+        executionTime,
+        algorithm: algorithmId
       }
     }
   }
+}
+```
+
+```typescript
+// 0003 智能布局类型定义
+interface LayoutAnalysisResult {
+  algorithm: 'box' | 'layered' | 'mrtree' | 'stress' | 'grid'
+  direction?: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT'
+  spacing: { x: number; y: number }
+  preserveGroups: boolean
+}
+
+interface Connection {
+  from: string
+  to: string
+  type: 'arrow' | 'line'
 }
 ```
 

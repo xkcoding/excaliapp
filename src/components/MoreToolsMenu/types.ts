@@ -103,6 +103,10 @@ export interface MoreToolsMenuProps {
 export interface LayoutToolsHook {
   autoLayout: () => Promise<void>
   applyLayout: (algorithm: string, spacing: { x: number; y: number }, direction?: string) => Promise<void>
+  gridAlign: () => Promise<void>
+  smartGroup: () => Promise<void>
+  verticalFlow: () => Promise<void>
+  horizontalFlow: () => Promise<void>
 }
 
 export interface AIToolsHook {

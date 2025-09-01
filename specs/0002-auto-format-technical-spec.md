@@ -16,24 +16,28 @@
 
 ## 功能规格
 
-### 1. 一键美化布局
+### 1. Auto Layout 智能布局
+
+> **参考实现**: Obsidian Excalidraw 插件的智能布局系统  
+> **核心引擎**: elkjs 专业图形布局引擎
 
 #### 功能描述
-用户选择画布中的元素后，通过 More Tools 菜单选择布局算法，自动优化元素位置和排列。
+用户选择元素后，通过 MainMenu → Layout Tools → Auto Layout 一键执行智能布局优化。系统自动分析图表模式并选择最佳算法。
 
-#### 支持的布局类型
-- **网格对齐**：将元素对齐到网格，消除微小偏差
-- **智能分组**：识别相关元素并进行分组排列
-- **流程图优化**：
-  - 垂直流程：适合上下流向的流程图
-  - 水平流程：适合左右流向的流程图
+#### 智能算法选择策略
+- **时序图**: 水平参与者 + 垂直消息流 → Layered(向下)
+- **架构图**: 多框少箭头，框/箭头比>3 → Box算法
+- **业务流程**: 决策节点 + 线性流程 → Layered(向下)
+- **类图**: 继承层次结构 → MrTree算法
+- **复杂网络**: 连接密度>2 → Stress算法
+- **通用场景**: 无明确模式 → 智能网格布局
 
 #### 交互流程
 1. 用户选择一个或多个元素
-2. 点击顶部工具栏 "More Tools" 下拉菜单
-3. 选择具体的布局算法
-4. 系统自动调整元素位置
-5. 如有错误，通过 CustomDialog 组件显示错误信息
+2. 点击 MainMenu → Layout Tools → Auto Layout
+3. 系统自动分析图表模式并选择最佳算法
+4. elkjs 引擎执行专业布局计算
+5. 更新选中元素位置，支持Excalidraw原生撤销/重做
 
 ### 2. 文本生成图表
 
@@ -121,31 +125,49 @@ src/
 
 ### 关键技术选型
 
-#### 布局算法实现
+#### elkjs 智能布局引擎
 ```typescript
-interface LayoutAlgorithm {
-  name: string
-  description: string
-  apply: (elements: ExcalidrawElement[]) => ExcalidrawElement[]
+// 基于elkjs的智能布局服务
+class LayoutService {
+  private elk: ELK
+  
+  /** 一键智能优化 - 核心功能 */
+  async optimizeLayout(elements: ExcalidrawElement[]): Promise<LayoutResult> {
+    // 1. 提取连接关系
+    const connections = this.extractConnections(elements)
+    
+    // 2. 智能模式分析
+    const analysis = this.analyzeLayoutPattern(elements, connections)
+    
+    // 3. 执行elkjs布局
+    return await this.executeLayout(elements, connections, analysis)
+  }
 }
 
-// 网格对齐算法
-function gridAlign(elements: ExcalidrawElement[], options: {
-  spacing: number
-  snapToGrid: boolean
-}): ExcalidrawElement[]
+/** 支持的6种 elkjs 专业算法 */
+export const ELK_ALGORITHMS = {
+  box: 'rectpacking',      // 包装算法 - 架构图
+  layered: 'layered',      // 分层算法 - 流程图/时序图
+  mrtree: 'mrtree',        // 树形算法 - 类图
+  stress: 'stress',        // 力导向算法 - 复杂网络
+  force: 'force',          // 力学算法
+  grid: 'rectpacking'      // 网格布局 - 通用场景
+}
 
-// 智能分组算法  
-function smartGroup(elements: ExcalidrawElement[], options: {
-  groupDistance: number
-  alignGroups: boolean
-}): ExcalidrawElement[]
-
-// 流程优化算法
-function flowOptimize(elements: ExcalidrawElement[], options: {
-  direction: "vertical" | "horizontal"
-  spacing: number
-}): ExcalidrawElement[]
+/** 智能模式识别策略 */
+interface PatternDetection {
+  // 时序图：水平参与者 + 垂直消息流
+  hasSequenceDiagram: hasHorizontalActors && hasVerticalMessages
+  
+  // 架构图：多框少箭头，框/箭头比>3
+  hasArchitecture: boxToArrowRatio > 3 && rectangleCount > 5
+  
+  // 业务流程：决策节点 + 线性流程
+  hasBusinessFlow: hasDecisionNodes && hasLinearFlow
+  
+  // 复杂网络：连接密度>2
+  hasComplexNetwork: connectionDensity > 2
+}
 ```
 
 #### AI服务架构

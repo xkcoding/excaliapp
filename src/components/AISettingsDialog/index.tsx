@@ -38,24 +38,32 @@ export function AISettingsDialog({ isOpen, onClose }: AISettingsDialogProps) {
       
       // First update config with temp values
       updateConfig(tempConfig)
-      // Then validate the updated config
-      await validateConfig()
-      setValidationResult(t('ai.test.saveSuccess'))
       
-      setTimeout(() => {
-        onClose()
-        setValidationResult('')
-        setHasTestedConnection(false)
+      // Then validate the updated config
+      const isValid = await validateConfig()
+      
+      if (isValid) {
+        setValidationResult(t('ai.test.saveSuccess'))
         
-        // Check if we came from AI text-to-chart dialog and return to it
-        const urlParams = new URLSearchParams(window.location.search)
-        if (urlParams.get('returnTo') === 'textToChart') {
-          // Trigger event to reopen text to chart dialog
-          window.dispatchEvent(new CustomEvent('reopen-text-to-chart'))
-        }
-      }, 1500)
+        setTimeout(() => {
+          onClose()
+          setValidationResult('')
+          setHasTestedConnection(false)
+          
+          // Check if we came from AI text-to-chart dialog and return to it
+          const urlParams = new URLSearchParams(window.location.search)
+          if (urlParams.get('returnTo') === 'textToChart') {
+            // Trigger event to reopen text to chart dialog
+            window.dispatchEvent(new CustomEvent('reopen-text-to-chart'))
+          }
+        }, 1500)
+      } else {
+        setValidationResult(t('ai.test.unknownError'))
+      }
     } catch (error) {
-      setValidationResult(t('ai.test.unknownError'))
+      console.error('AI config save error:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      setValidationResult(`❌ ${errorMessage}`)
     } finally {
       setIsValidating(false)
     }
@@ -78,50 +86,50 @@ export function AISettingsDialog({ isOpen, onClose }: AISettingsDialogProps) {
       setIsTesting(true)
       setTestResult('')
       
-      // Create test service with current temp config
-      const testConfig: AIConfig = {
-        ...tempConfig,
-        maxTokens: 100, // Use minimal tokens for test
-        timeout: 10000  // 10 second timeout for test
+      // Use Tauri backend to test connection
+      const { invoke } = await import('@tauri-apps/api/core')
+      
+      const testRequest = {
+        base_url: tempConfig.baseUrl,
+        api_key: tempConfig.apiKey,
+        model: tempConfig.model,
       }
       
-      const response = await fetch(`${testConfig.baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${testConfig.apiKey}`
-        },
-        body: JSON.stringify({
-          model: testConfig.model,
-          messages: [{ role: 'user', content: '你好' }],
-          max_tokens: 10,
-          temperature: 0.1
-        }),
-        signal: AbortSignal.timeout(10000)
+      const result = await invoke<{success: boolean, error_message?: string, response_data?: any}>('test_ai_connection', {
+        request: testRequest
       })
 
-      if (response.ok) {
-        const data = await response.json()
+      if (result.success) {
         setTestResult(t('ai.test.success'))
         setHasTestedConnection(true)
-      } else if (response.status === 401) {
-        setTestResult(t('ai.test.authFailed'))
-      } else if (response.status === 429) {
-        setTestResult(t('ai.test.rateLimited'))
       } else {
-        setTestResult(t('ai.test.connectionFailed', { status: response.status }))
+        setTestResult(result.error_message || t('ai.test.unknownError'))
       }
     } catch (error) {
+      console.error('Connection test error details:', {
+        error,
+        errorType: error instanceof Error ? error.constructor.name : typeof error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+        testConfig: {
+          baseUrl: testConfig.baseUrl,
+          model: testConfig.model,
+          hasApiKey: !!testConfig.apiKey
+        }
+      })
+      
       if (error instanceof Error) {
         if (error.name === 'TimeoutError' || error.message.includes('timeout')) {
-          setTestResult(t('ai.test.timeout'))
-        } else if (error.message.includes('fetch')) {
-          setTestResult(t('ai.test.networkError'))
+          setTestResult(`❌ 超时: ${error.message}`)
+        } else if (error.message.includes('fetch') || error.message.includes('NetworkError')) {
+          setTestResult(`❌ 网络错误: ${error.message}`)
+        } else if (error.message.includes('CORS')) {
+          setTestResult(`❌ CORS错误: ${error.message}`)
         } else {
-          setTestResult(t('ai.test.unknownError'))
+          setTestResult(`❌ 详细错误: ${error.message}`)
         }
       } else {
-        setTestResult(t('ai.test.unknownError'))
+        setTestResult(`❌ 未知错误: ${String(error)}`)
       }
     } finally {
       setIsTesting(false)

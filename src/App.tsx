@@ -10,12 +10,14 @@ import { useDialog } from './contexts/DialogContext'
 import { PanelLeft } from 'lucide-react'
 import { AISettingsDialog } from './components/AISettingsDialog'
 import { useI18nStore, useTranslation } from './store/useI18nStore'
+import { useAIConfig } from './store/useAIConfigStore'
 import './index.css'
 
 function App() {
   const { loadPreferences, loadDirectory, currentDirectory, sidebarVisible, isDirty, saveCurrentFile, toggleSidebar, activeFile } = useStore()
   const { showDialog } = useDialog()
   const { initialize: initializeI18n, isLoading: i18nLoading } = useI18nStore()
+  const { validateConfig, config, isValid } = useAIConfig()
   const { t: rawT } = useTranslation()
   
   // Safe translation function that won't crash if i18n isn't ready
@@ -28,7 +30,7 @@ function App() {
     }
   }
   const [isAISettingsOpen, setIsAISettingsOpen] = useState(false)
-  const [isI18nInitialized, setIsI18nInitialized] = useState(false)
+  const [isI18nInitialized, setIsI18nInitialized] = useState(true) // 默认为 true，避免白屏
 
 
   // Load preferences and setup on mount
@@ -40,21 +42,15 @@ function App() {
         console.log('✅ Preferences loaded')
         
         console.log('🌐 Initializing i18n...')
-        await initializeI18n()
-        console.log('✅ i18n initialized successfully')
+        // 不等待 i18n 初始化完成，先显示应用
+        initializeI18n().catch(error => {
+          console.error('❌ i18n initialization failed:', error)
+        })
+        console.log('✅ App initialization complete (i18n running in background)')
         
-        // Add a small delay to ensure everything is ready
-        setTimeout(() => {
-          setIsI18nInitialized(true)
-          console.log('✅ App initialization complete')
-        }, 100)
       } catch (error) {
         console.error('❌ Failed to initialize app:', error)
-        // Even if failed, still show the app to prevent infinite loading
-        setTimeout(() => {
-          setIsI18nInitialized(true)
-          console.log('⚠️ App forced to continue despite errors')
-        }, 1000)
+        console.log('⚠️ App continuing with basic functionality')
       }
     }
     initializeApp()
@@ -68,7 +64,7 @@ function App() {
       if (returnTo) {
         console.log('Will return to:', returnTo)
         // Store returnTo in URL for AI settings dialog to read
-        const url = new URL(window.location)
+        const url = new URL(window.location.href)
         url.searchParams.set('returnTo', returnTo)
         window.history.pushState({}, '', url.toString())
       }
@@ -190,23 +186,24 @@ function App() {
   // Emergency fallback - if stuck loading for too long, force show app
   useEffect(() => {
     const emergencyTimeout = setTimeout(() => {
-      if (!isI18nInitialized) {
-        console.warn('⚠️ Emergency timeout - forcing app to show')
-        setIsI18nInitialized(true)
-      }
-    }, 5000) // 5 second emergency timeout
+      console.warn('⚠️ Emergency timeout triggered - forcing app to show regardless of i18n state')
+      console.log('Current state - isI18nInitialized:', isI18nInitialized, 'i18nLoading:', i18nLoading)
+      setIsI18nInitialized(true)
+    }, 2000) // 2 second emergency timeout
 
     return () => clearTimeout(emergencyTimeout)
-  }, [isI18nInitialized])
+  }, []) // Remove dependency to ensure it always runs
 
   // Show loading screen while i18n is initializing
   if (!isI18nInitialized || i18nLoading) {
+    console.log('🔄 Showing loading screen - isI18nInitialized:', isI18nInitialized, 'i18nLoading:', i18nLoading)
     return (
       <div className="h-screen flex bg-white text-gray-900 overflow-hidden items-center justify-center">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-solid border-blue-600 border-r-transparent mb-4"></div>
           <p className="text-lg font-medium text-gray-700">OwnExcaliDesk</p>
-          <p className="text-sm text-gray-500">Initializing...</p>
+          <p className="text-sm text-gray-500">Initializing i18n...</p>
+          <p className="text-xs text-gray-400 mt-2">Debug: i18nInit={isI18nInitialized ? 'true' : 'false'}, loading={i18nLoading ? 'true' : 'false'}</p>
         </div>
       </div>
     )

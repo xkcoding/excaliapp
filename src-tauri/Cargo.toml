@@ -1,6 +1,6 @@
 [package]
 name = "ownexcalidesk"
-version = "0.2.0"
+version = "0.3.0"
 description = "OwnExcaliDesk - 基于 Excalidraw 的桌面绘图应用，支持流程图、思维导图等可视化设计"
 authors = ["柏玄 (Yangkai.Shen) <yangkai.shen@example.com>"]
 edition = "2024"
@@ -27,3 +27,5 @@ tauri-plugin-clipboard-manager = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 notify = "8"
+reqwest = { version = "0.12", features = ["json", "stream"] }
+futures-util = "0.3"

@@ -8,6 +8,30 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig(async () => ({
   plugins: [react()],
 
+  // Build configuration
+  build: {
+    rollupOptions: {
+      output: {
+        assetFileNames: (assetInfo) => {
+          // Preserve font file names for Excalidraw fonts
+          if (assetInfo.name && assetInfo.name.endsWith('.woff2')) {
+            return 'assets/fonts/[name][extname]'
+          }
+          return 'assets/[name]-[hash][extname]'
+        }
+      }
+    },
+    // Copy font files to output
+    copyPublicDir: true
+  },
+
+  // Explicitly include Excalidraw fonts
+  assetsInclude: [
+    '**/*.woff',
+    '**/*.woff2',
+    '**/node_modules/@excalidraw/excalidraw/dist/prod/fonts/**/*'
+  ],
+
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
   // 1. prevent Vite from obscuring rust errors

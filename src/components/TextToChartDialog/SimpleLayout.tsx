@@ -15,7 +15,10 @@ import mermaid from 'mermaid'
 export interface TextToChartDialogProps {
   isOpen: boolean
   onClose: () => void
-  onGenerate: (request: ChartGenerationRequest) => Promise<{ success: boolean; mermaidCode?: string; error?: string }>
+  onGenerate: (
+    request: ChartGenerationRequest, 
+    onStreamProgress?: (chunk: string) => void
+  ) => Promise<{ success: boolean; mermaidCode?: string; error?: string }>
   onImportToCanvas: (mermaidCode: string) => Promise<void>
   loading?: boolean
   error?: string | null
@@ -29,7 +32,18 @@ export const TextToChartDialog: React.FC<TextToChartDialogProps> = ({
   loading = false,
   error = null
 }) => {
-  const { config, isValid, validateConfig, estimateTokens } = useAIConfig()
+  const { config, validateConfig, estimateTokens } = useAIConfig()
+  
+  // Check if config is actually complete (real-time validation)
+  const isConfigComplete = Boolean(
+    config.apiKey && 
+    config.baseUrl && 
+    config.model && 
+    config.apiKey.length >= 10 && 
+    config.baseUrl.startsWith('http') &&
+    config.model.length > 0
+  )
+  
   const { t } = useTranslation()
   
   // Form state
@@ -44,6 +58,9 @@ export const TextToChartDialog: React.FC<TextToChartDialogProps> = ({
   const [selectedChartType, setSelectedChartType] = useState<ChartType>('flowchart')
   const [complexity, setComplexity] = useState<'simple' | 'detailed'>('detailed')
   const [generatedMermaid, setGeneratedMermaid] = useState<string>('')
+  const [editableMermaid, setEditableMermaid] = useState<string>('') // 可编辑的代码
+  const [streamingMermaid, setStreamingMermaid] = useState<string>('') // 流式输出的实时内容
+  const [isEditing, setIsEditing] = useState(false) // 是否处于编辑模式
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationError, setGenerationError] = useState<string>('')
   const [mermaidError, setMermaidError] = useState<string>('')
@@ -60,12 +77,13 @@ export const TextToChartDialog: React.FC<TextToChartDialogProps> = ({
 
   // Render mermaid diagram when code changes
   useEffect(() => {
-    if (!generatedMermaid || !mermaidRef.current) return
+    const codeToRender = editableMermaid || generatedMermaid
+    if (!codeToRender || !mermaidRef.current) return
 
     const renderMermaid = async () => {
       try {
         setMermaidError('')
-        const { svg } = await mermaid.render('mermaid-preview', generatedMermaid)
+        const { svg } = await mermaid.render('mermaid-preview', codeToRender)
         if (mermaidRef.current) {
           mermaidRef.current.innerHTML = svg
         }
@@ -78,7 +96,7 @@ export const TextToChartDialog: React.FC<TextToChartDialogProps> = ({
     }
 
     renderMermaid()
-  }, [generatedMermaid])
+  }, [editableMermaid, generatedMermaid])
 
   // Update text input analysis
   const updateTextAnalysis = useCallback((text: string) => {
@@ -125,7 +143,7 @@ export const TextToChartDialog: React.FC<TextToChartDialogProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!textInput.valid || !isValid) return
+    if (!textInput.valid || !isConfigComplete) return
 
     const request: ChartGenerationRequest = {
       text: textInput.value,
@@ -140,11 +158,18 @@ export const TextToChartDialog: React.FC<TextToChartDialogProps> = ({
     try {
       setIsGenerating(true)
       setGenerationError('')
+      setStreamingMermaid('') // 清空之前的流式内容
       
-      const result = await onGenerate(request)
+      // 流式回调函数
+      const handleStreamProgress = (chunk: string) => {
+        setStreamingMermaid(prev => prev + chunk)
+      }
+      
+      const result = await onGenerate(request, handleStreamProgress)
       
       if (result.success && result.mermaidCode) {
         setGeneratedMermaid(result.mermaidCode)
+        setEditableMermaid(result.mermaidCode) // 同步到可编辑版本
       } else {
         setGenerationError(result.error || 'Generation failed')
       }
@@ -161,7 +186,7 @@ export const TextToChartDialog: React.FC<TextToChartDialogProps> = ({
       console.log('Starting import to canvas...')
       console.log('Mermaid code:', generatedMermaid)
       
-      await onImportToCanvas(generatedMermaid)
+      await onImportToCanvas(editableMermaid || generatedMermaid)
       
       console.log('Import successful, resetting form...')
       // Reset form and close dialog
@@ -173,6 +198,9 @@ export const TextToChartDialog: React.FC<TextToChartDialogProps> = ({
         errors: []
       })
       setGeneratedMermaid('')
+      setEditableMermaid('') // 清空编辑代码
+      setStreamingMermaid('') // 清空流式内容
+      setIsEditing(false) // 退出编辑模式
       onClose()
     } catch (error) {
       console.error('Import failed:', error)
@@ -305,15 +333,15 @@ export const TextToChartDialog: React.FC<TextToChartDialogProps> = ({
                 <div className="border-t pt-4">
                   <div className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full ${isValid ? 'bg-green-500' : 'bg-red-500'}`} />
+                      <span className={`w-2 h-2 rounded-full ${isConfigComplete ? 'bg-green-500' : 'bg-red-500'}`} />
                       <span>{t('ai.textToChart.configStatus')}</span>
                     </div>
                     <div className="text-gray-600">
-                      {isValid ? t('ai.textToChart.configured') : t('ai.textToChart.needsConfig')}
+                      {isConfigComplete ? t('ai.textToChart.configured') : t('ai.textToChart.needsConfig')}
                     </div>
                   </div>
                   
-                  {!isValid && (
+                  {!isConfigComplete && (
                     <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded flex items-center justify-between">
                       <span>请先配置 AI API 密钥和服务地址</span>
                       <button
@@ -335,7 +363,7 @@ export const TextToChartDialog: React.FC<TextToChartDialogProps> = ({
                 <div className="pt-4">
                   <button
                     type="submit"
-                    disabled={!textInput.valid || !isValid || isGenerating}
+                    disabled={!textInput.valid || !isConfigComplete || isGenerating}
                     className="w-full px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     {isGenerating ? (
@@ -357,37 +385,86 @@ export const TextToChartDialog: React.FC<TextToChartDialogProps> = ({
             <div className="space-y-4">
               <h3 className="font-semibold">{t('ai.textToChart.preview.chartPreview')}</h3>
               
-              {!generatedMermaid ? (
+              {/* 显示流式输出过程 */}
+              {isGenerating ? (
+                <div className="space-y-4">
+                  <div className="bg-blue-50 p-3 rounded-md border border-blue-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-4 h-4 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+                      <div className="text-sm text-blue-700 font-medium">正在生成 Mermaid 代码...</div>
+                    </div>
+                    <pre className="text-xs bg-white p-2 rounded border font-mono overflow-auto max-h-40 whitespace-pre-wrap">
+                      {streamingMermaid || '等待流式输出...'}
+                    </pre>
+                  </div>
+                </div>
+              ) : !generatedMermaid ? (
                 <div className="border border-gray-200 rounded-md p-8 min-h-96 bg-gray-50 flex items-center justify-center">
                   <div className="text-center text-gray-500">
                     <div className="text-4xl mb-2">📊</div>
                     <div>生成后在此预览图表</div>
                   </div>
                 </div>
-              ) : (
+              ) : generatedMermaid ? (
                 <div className="space-y-4">
                   {/* Mermaid Code */}
                   <div className="bg-gray-50 p-3 rounded-md">
                     <div className="flex items-center justify-between mb-2">
                       <div className="text-xs text-gray-600">Mermaid 代码:</div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setIsEditing(!isEditing)}
+                          className="px-2 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600 flex items-center gap-1"
+                          title={isEditing ? "预览模式" : "编辑模式"}
+                        >
+                          {isEditing ? "👁️ 预览" : "✏️ 编辑"}
+                        </button>
+                        <button
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(isEditing ? editableMermaid : generatedMermaid)
+                            } catch (error) {
+                              console.error('Failed to copy to clipboard:', error)
+                            }
+                          }}
+                          className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 flex items-center gap-1"
+                          title="复制代码"
+                        >
+                          📋 复制
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {isEditing ? (
+                      <textarea
+                        value={editableMermaid}
+                        onChange={(e) => setEditableMermaid(e.target.value)}
+                        className="w-full text-xs font-mono bg-white p-2 rounded border min-h-32 max-h-64 resize-y"
+                        placeholder="在此编辑 Mermaid 代码..."
+                      />
+                    ) : (
+                      <pre className="text-xs overflow-auto max-h-32 bg-white p-2 rounded border font-mono">
+                        <code>{editableMermaid || generatedMermaid}</code>
+                      </pre>
+                    )}
+                  </div>
+
+                  {/* 编辑模式下的应用按钮 */}
+                  {isEditing && (
+                    <div className="flex justify-end mb-2">
                       <button
-                        onClick={async () => {
-                          try {
-                            await navigator.clipboard.writeText(generatedMermaid)
-                          } catch (error) {
-                            console.error('Failed to copy to clipboard:', error)
-                          }
+                        onClick={() => {
+                          // 触发重新渲染预览
+                          setMermaidError('')
+                          setIsEditing(false)
+                          setTimeout(() => setIsEditing(true), 100) // 重新进入编辑模式以保持状态
                         }}
-                        className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 flex items-center gap-1"
-                        title="复制代码"
+                        className="px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
                       >
-                        📋 复制
+                        ✅ 应用修改
                       </button>
                     </div>
-                    <pre className="text-xs overflow-auto max-h-32 bg-white p-2 rounded border">
-                      <code>{generatedMermaid}</code>
-                    </pre>
-                  </div>
+                  )}
 
                   {/* Actions */}
                   <div className="flex gap-2">
@@ -407,10 +484,19 @@ export const TextToChartDialog: React.FC<TextToChartDialogProps> = ({
                         
                         try {
                           setIsGenerating(true)
-                          const result = await onGenerate(request)
+                          setGenerationError('')
+                          setStreamingMermaid('') // 清空之前的流式内容
+                          
+                          // 流式回调函数  
+                          const handleStreamProgress = (chunk: string) => {
+                            setStreamingMermaid(prev => prev + chunk)
+                          }
+                          
+                          const result = await onGenerate(request, handleStreamProgress)
                           
                           if (result.success && result.mermaidCode) {
                             setGeneratedMermaid(result.mermaidCode)
+                            setEditableMermaid(result.mermaidCode) // 同步到可编辑版本
                           } else {
                             setGenerationError(result.error || 'Regeneration failed')
                           }
@@ -448,7 +534,7 @@ export const TextToChartDialog: React.FC<TextToChartDialogProps> = ({
                     )}
                   </div>
                 </div>
-              )}
+              ) : null}
               
               {/* Generation Error */}
               {generationError && (

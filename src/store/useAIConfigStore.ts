@@ -157,20 +157,15 @@ export const useAIConfigStore = create<AIConfigStore>()(
             throw new Error('Model is required')
           }
 
-          // Provider-specific validation
-          const isValid = await provider.validateConfig(config)
-          
-          if (isValid) {
-            set({
-              isValid: true,
-              isValidating: false,
-              lastValidated: new Date(),
-              validationError: undefined
-            })
-            return true
-          } else {
-            throw new Error('Provider validation failed')
-          }
+          // For now, skip provider-specific validation since it's handled in the dialog's test connection
+          // The test connection button already validates the API
+          set({
+            isValid: true,
+            isValidating: false,
+            lastValidated: new Date(),
+            validationError: undefined
+          })
+          return true
           
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Validation failed'
@@ -298,7 +293,9 @@ export const useAIConfigStore = create<AIConfigStore>()(
           apiKey: state.config.apiKey // Persist API key in local storage
         },
         currentProvider: state.currentProvider,
-        usage: state.usage
+        usage: state.usage,
+        isValid: state.isValid, // Persist validation status
+        lastValidated: state.lastValidated // Persist last validation time
       })
     }
   )

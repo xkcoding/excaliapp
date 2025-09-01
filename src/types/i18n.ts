@@ -180,6 +180,21 @@ export interface TranslationKeys {
     horizontalFlowDesc: string
     // 错误消息
     selectElementsFirst: string
+    
+    // Layout selection dialog
+    dialog: {
+      title: string
+      description: string
+      apply: string
+      cancel: string
+      algorithms: {
+        [key: string]: {
+          name: string
+          description: string
+          bestFor: string[]
+        }
+      }
+    }
   }
 
   // 设置
@@ -261,6 +276,14 @@ export interface TranslationKeys {
       message: string
       closeWithoutSaving: string
       goBack: string
+    }
+
+    // 语言切换重启确认
+    languageRestart: {
+      title: string
+      message: string
+      restart: string
+      cancel: string
     }
 
     // 删除确认
@@ -357,7 +380,8 @@ export const SUPPORTED_LANGUAGES: LanguageConfig[] = [
     code: 'en-US', 
     displayName: 'English (US)',
     englishName: 'English (US)',
-    direction: 'ltr'
+    direction: 'ltr',
+    isDefault: false
   }
 ]
 
@@ -367,6 +391,6 @@ export const SUPPORTED_LANGUAGES: LanguageConfig[] = [
 export const DEFAULT_I18N_CONFIG: I18nConfig = {
   currentLanguage: 'zh-CN',
   fallbackLanguage: 'en-US',
-  autoDetect: true,
+  autoDetect: false, // 禁用自动检测，避免重启后语言冲突
   languageHistory: ['zh-CN']
 }

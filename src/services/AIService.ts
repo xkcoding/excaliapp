@@ -19,6 +19,12 @@ export interface IAIService {
   /** 生成图表 */
   generateChart(request: ChartGenerationRequest): Promise<ChartGenerationResponse>
   
+  /** 流式生成图表 */
+  generateChartStream(
+    request: ChartGenerationRequest, 
+    onProgress: (chunk: string) => void
+  ): Promise<ChartGenerationResponse>
+  
   /** 验证API配置 */
   validateConfig(config: AIConfig): Promise<boolean>
   
@@ -62,6 +68,62 @@ export class OpenAICompatibleService implements IAIService {
       const response = await this.makeAPICall(prompt, request.config, abortController.signal)
       
       // Parse response
+      const mermaidCode = this.extractMermaidCode(response.content)
+      
+      const endTime = performance.now()
+      const generationTime = endTime - startTime
+
+      // Cleanup
+      this.abortControllers.delete(requestId)
+
+      return {
+        mermaidCode,
+        explanation: response.explanation,
+        confidence: response.confidence,
+        tokensUsed: response.usage?.total_tokens || this.estimateTokens(request.text, request.chartType),
+        generationTime,
+        requestId
+      }
+
+    } catch (error) {
+      this.abortControllers.delete(requestId)
+      
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw this.createAIError('timeout', 'Request was cancelled')
+      }
+      
+      throw this.handleAPIError(error)
+    }
+  }
+
+  /**
+   * Generate chart with streaming support
+   */
+  async generateChartStream(
+    request: ChartGenerationRequest, 
+    onProgress: (chunk: string) => void
+  ): Promise<ChartGenerationResponse> {
+    const requestId = this.generateRequestId()
+    const startTime = performance.now()
+    
+    try {
+      // Create abort controller for cancellation support
+      const abortController = new AbortController()
+      this.abortControllers.set(requestId, abortController)
+
+      // Get chart type configuration
+      const chartTypeConfig = CHART_TYPE_OPTIONS.find(opt => opt.value === request.chartType)
+      if (!chartTypeConfig) {
+        throw this.createAIError('parsing', `Unsupported chart type: ${request.chartType}`)
+      }
+
+      // Build prompt
+      const prompt = this.buildPrompt(request.text, request.chartType, chartTypeConfig, request.options)
+      
+      // Make streaming API call
+      const response = await this.makeStreamingAPICall(prompt, request.config, abortController.signal, onProgress)
+      
+      // Parse final response
       const mermaidCode = this.extractMermaidCode(response.content)
       
       const endTime = performance.now()
@@ -180,15 +242,55 @@ export class OpenAICompatibleService implements IAIService {
     const language = options?.language || 'zh'
     const complexity = options?.complexity || 'detailed'
     
+    // Mermaid 语法规范
+    const syntaxRules = language === 'zh' ? 
+      `重要语法规范：
+- 每个节点连接必须完整：A --> B 或 A -->|标签| B
+- 判断节点使用 {} 格式：C{是否条件?}
+- 判断分支必须包含起始节点：C -->|是| D 和 C -->|否| E
+- 避免悬挂的 |标签| 语法，必须有完整的 起始节点 -->|标签| 目标节点
+- 节点ID只能包含字母数字和下划线，避免特殊字符
+- 每行只写一个连接关系` :
+      `Important syntax rules:
+- Each node connection must be complete: A --> B or A -->|label| B  
+- Decision nodes use {} format: C{condition?}
+- Decision branches must include source node: C -->|yes| D and C -->|no| E
+- Avoid hanging |label| syntax, must have complete source -->|label| target
+- Node IDs can only contain alphanumeric and underscore, avoid special chars
+- Write one connection per line`
+
+    const examples = language === 'zh' ?
+      `正确示例：
+flowchart TD
+    A[开始] --> B[步骤1]
+    B --> C{判断条件?}
+    C -->|是| D[执行A]
+    C -->|否| E[执行B]
+    D --> F[结束]
+    E --> F` :
+      `Correct example:
+flowchart TD
+    A[Start] --> B[Step1]
+    B --> C{Condition?}
+    C -->|Yes| D[Action A]
+    C -->|No| E[Action B]
+    D --> F[End]
+    E --> F`
+    
     const basePrompt = language === 'zh' ? 
       `你是一个专业的图表设计师。请将以下描述转换为 Mermaid ${chartType} 代码。
 
+${syntaxRules}
+
+${examples}
+
 要求：
-1. 代码必须符合 Mermaid 语法规范
+1. 代码必须符合 Mermaid 语法规范，避免语法错误
 2. ${complexity === 'simple' ? '保持简洁，只包含核心要素' : '详细展示所有重要元素和关系'}
 3. 使用清晰的中文标签
 4. 确保逻辑流程清晰易懂
-5. 只返回 Mermaid 代码，不要其他解释
+5. 每个判断分支都必须完整定义
+6. 只返回 Mermaid 代码，不要其他解释
 
 用户描述：
 ${text}
@@ -196,12 +298,17 @@ ${text}
 请生成对应的 Mermaid 代码：` :
       `You are a professional diagram designer. Please convert the following description into Mermaid ${chartType} code.
 
+${syntaxRules}
+
+${examples}
+
 Requirements:
-1. Code must follow Mermaid syntax standards
+1. Code must follow Mermaid syntax standards to avoid syntax errors
 2. ${complexity === 'simple' ? 'Keep it simple, include only core elements' : 'Show all important elements and relationships in detail'}
 3. Use clear English labels
 4. Ensure logical flow is clear and understandable
-5. Return only Mermaid code, no other explanations
+5. All decision branches must be completely defined
+6. Return only Mermaid code, no other explanations
 
 User description:
 ${text}
@@ -212,7 +319,7 @@ Please generate the corresponding Mermaid code:`
   }
 
   /**
-   * Make API call to AI service
+   * Make API call to AI service via Tauri backend
    */
   private async makeAPICall(
     prompt: string, 
@@ -224,37 +331,114 @@ Please generate the corresponding Mermaid code:`
     confidence?: number
     usage?: { total_tokens: number }
   }> {
-    const response = await fetch(`${config.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.apiKey}`
-      },
-      body: JSON.stringify({
-        model: config.model,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: config.maxTokens,
-        temperature: config.temperature,
-        stream: config.stream
-      }),
-      signal
+    // Use Tauri backend for API calls
+    const { invoke } = await import('@tauri-apps/api/core')
+    
+    const generateRequest = {
+      base_url: config.baseUrl,
+      api_key: config.apiKey,
+      model: config.model,
+      prompt: prompt,
+      max_tokens: config.maxTokens,
+      temperature: config.temperature,
+      stream: false,
+    }
+    
+    const result = await invoke<{success: boolean, content?: string, error_message?: string, tokens_used?: number}>('call_ai_api', {
+      request: generateRequest
     })
 
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.status} ${response.statusText}`)
+    if (!result.success) {
+      throw new Error(result.error_message || 'AI API call failed')
     }
 
-    const data = await response.json()
-    
-    if (!data.choices || data.choices.length === 0) {
-      throw new Error('No response from AI service')
+    if (!result.content) {
+      throw new Error('No content received from AI service')
     }
-
-    const content = data.choices[0].message?.content || ''
     
     return {
-      content,
-      usage: data.usage
+      content: result.content,
+      usage: result.tokens_used ? { total_tokens: result.tokens_used } : undefined
+    }
+  }
+
+  /**
+   * Make streaming API call to AI service via Tauri backend
+   */
+  private async makeStreamingAPICall(
+    prompt: string, 
+    config: AIConfig, 
+    signal: AbortSignal,
+    onProgress: (chunk: string) => void
+  ): Promise<{
+    content: string
+    explanation?: string
+    confidence?: number
+    usage?: { total_tokens: number }
+  }> {
+    const { invoke } = await import('@tauri-apps/api/core')
+    const { listen } = await import('@tauri-apps/api/event')
+    const requestId = `stream_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    
+    let fullContent = ''
+    let streamCompleted = false
+    let streamError: string | null = null
+    
+    // Listen for stream events
+    const unlisten = await listen('ai-stream-chunk', (event) => {
+      const chunk = event.payload as { request_id: string, content: string, finished: boolean }
+      if (chunk.request_id === requestId) {
+        fullContent += chunk.content
+        onProgress(chunk.content)
+      }
+    })
+    
+    const unlistenComplete = await listen('ai-stream-complete', (event) => {
+      const data = event.payload as { request_id: string }
+      if (data.request_id === requestId) {
+        streamCompleted = true
+      }
+    })
+    
+    const unlistenError = await listen('ai-stream-error', (event) => {
+      const data = event.payload as { request_id: string, error: string }
+      if (data.request_id === requestId) {
+        streamError = data.error
+        streamCompleted = true
+      }
+    })
+    
+    try {
+      // Start streaming
+      const streamRequest = {
+        base_url: config.baseUrl,
+        api_key: config.apiKey,
+        model: config.model,
+        prompt: prompt,
+        max_tokens: config.maxTokens,
+        temperature: config.temperature,
+        request_id: requestId,
+      }
+      
+      await invoke('call_ai_api_stream', { request: streamRequest })
+      
+      // Wait for stream to complete
+      while (!streamCompleted) {
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
+      
+      if (streamError) {
+        throw new Error(streamError)
+      }
+      
+      return {
+        content: fullContent,
+        usage: undefined
+      }
+    } finally {
+      unlisten()
+      unlistenComplete()
+      unlistenError()
     }
   }
 

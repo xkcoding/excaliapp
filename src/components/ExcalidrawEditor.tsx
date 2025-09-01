@@ -33,7 +33,7 @@ export function ExcalidrawEditor() {
   const layoutTools = useLayoutTools(excalidrawAPI)
   
   // Translation hook
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
   
   // AI Config hook
   const { config: aiConfig } = useAIConfig()
@@ -384,7 +384,7 @@ export function ExcalidrawEditor() {
             setGlobalExcalidrawAPI(api)
           }}
           onChange={handleChange}
-
+          langCode={language} // 透传语言设置到 Excalidraw
           UIOptions={{
             canvasActions: {
               loadScene: false,
@@ -397,8 +397,20 @@ export function ExcalidrawEditor() {
           }}
         >
           <MainMenu>
-            <MainMenu.DefaultItems.Socials />
+            {/* 原始 Excalidraw 默认功能 */}
+            <MainMenu.DefaultItems.LoadScene />
+            <MainMenu.DefaultItems.SaveToActiveFile />
+            <MainMenu.DefaultItems.SaveAsImage />
             <MainMenu.DefaultItems.Export />
+            <MainMenu.DefaultItems.ClearCanvas />
+            <MainMenu.DefaultItems.ChangeCanvasBackground />
+            <MainMenu.DefaultItems.ToggleTheme />
+            <MainMenu.DefaultItems.Help />
+            <MainMenu.DefaultItems.Socials />
+            
+            <MainMenu.Separator />
+            
+            {/* 布局工具 */}
             <MainMenu.Group title={t('layout.layoutTools')}>
               <MainMenu.Item
                 onSelect={async () => {
@@ -415,6 +427,10 @@ export function ExcalidrawEditor() {
                 {t('layout.autoLayout')}
               </MainMenu.Item>
             </MainMenu.Group>
+            
+            <MainMenu.Separator />
+            
+            {/* AI 工具 */}
             <MainMenu.Group title={t('ai.aiTools')}>
               <MainMenu.Item
                 onSelect={() => {
@@ -462,7 +478,7 @@ export function ExcalidrawEditor() {
       <TextToChartDialog 
         isOpen={isTextToChartOpen}
         onClose={() => setIsTextToChartOpen(false)}
-        onGenerate={async (request: ChartGenerationRequest) => {
+        onGenerate={async (request: ChartGenerationRequest, onStreamProgress?: (chunk: string) => void) => {
           if (!excalidrawAPI) return { success: false, error: 'Excalidraw not ready' }
           
           setIsGenerating(true)
@@ -471,7 +487,11 @@ export function ExcalidrawEditor() {
           try {
             // Create AI service with config from hook
             const aiService = new OpenAICompatibleService(aiConfig)
-            const response = await aiService.generateChart(request)
+            
+            // 使用流式生成如果提供了回调
+            const response = onStreamProgress 
+              ? await aiService.generateChartStream(request, onStreamProgress)
+              : await aiService.generateChart(request)
             
             // Return mermaid code for preview instead of auto-converting
             return {
@@ -538,6 +558,9 @@ export function ExcalidrawEditor() {
               // Combine existing and new elements
               const allElements = [...existingElements, ...elementsToImport]
               
+              // Get IDs of newly imported elements for selection
+              const newElementIds = elementsToImport.map(el => el.id)
+              
               excalidrawAPI.updateScene({
                 elements: allElements,
                 appState: {
@@ -548,6 +571,24 @@ export function ExcalidrawEditor() {
                 },
                 commitToHistory: true
               })
+              
+              // Auto-select newly imported elements after scene update
+              setTimeout(() => {
+                try {
+                  const elementIdsObject = {}
+                  newElementIds.forEach(id => {
+                    elementIdsObject[id] = true
+                  })
+                  excalidrawAPI.updateScene({
+                    appState: {
+                      selectedElementIds: elementIdsObject
+                    }
+                  })
+                  console.log('Auto-selected imported elements:', newElementIds)
+                } catch (error) {
+                  console.error('Failed to auto-select elements:', error)
+                }
+              }, 100)
               
               console.log('Direct import completed')
               
@@ -585,7 +626,7 @@ export function ExcalidrawEditor() {
         onSelect={async (algorithm, spacing, direction) => {
           if (layoutTools?.applyLayout) {
             try {
-              await layoutTools.applyLayout(algorithm, spacing, direction)
+              await layoutTools.applyLayout(algorithm as string, spacing, direction)
             } catch (error) {
               console.error('Layout application failed:', error)
             }

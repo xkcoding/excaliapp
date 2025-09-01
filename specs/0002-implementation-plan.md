@@ -1,50 +1,36 @@
 # ExcaliApp 自动格式化功能实现计划
 
-## Phase 1: 基础布局功能 (1-2周)
+## Phase 1: 基础布局功能 ✅ **已完成**
 
-### 任务分解
+> **参考实现**: Obsidian Excalidraw 插件的布局架构  
+> **核心引擎**: elkjs 专业图形布局引擎
 
-#### 1.1 环境准备和依赖管理
-- [ ] **安装布局算法依赖**
-  - 研究和选择适合的图形布局库（如 dagre, cytoscape 等）
-  - 更新 package.json 依赖配置
+### 实际完成内容
 
-#### 1.2 核心类型定义
-- [ ] **创建布局相关类型** (`src/types/layout.ts`)
+#### 1.1 elkjs 专业布局引擎集成 ✅
+- ✅ **完整的 elkjs 集成**
+  - ✅ `src/services/layout/LayoutService.ts` (558 行)
+  - ✅ 支持 6 种专业算法：Box、Layered、MrTree、Stress、Force、Grid
+  - ✅ 智能算法选择和优化机制
+
+#### 1.2 智能模式识别系统 ✅
+- ✅ **基于用户角色的模式识别**
   ```typescript
-  export interface LayoutAlgorithm {
-    id: string
-    name: string
-    description: string
-    icon: string
-    apply: (elements: ExcalidrawElement[]) => ExcalidrawElement[]
-  }
-
-  export interface LayoutOptions {
-    spacing?: number
-    alignment?: 'left' | 'center' | 'right'
-    direction?: 'vertical' | 'horizontal'
-    snapToGrid?: boolean
-  }
+  // 时序图模式：水平参与者 + 垂直消息流
+  hasSequenceDiagram: hasHorizontalActors && hasVerticalMessages
+  
+  // 架构图模式：多框少箭头，框/箭头比>3
+  hasArchitecture: boxToArrowRatio > 3 && rectangleCount > 5
+  
+  // 业务流程模式：决策节点 + 线性流程
+  hasBusinessFlow: hasDecisionNodes && hasLinearFlow
   ```
 
-#### 1.3 布局算法实现
-- [ ] **网格对齐算法** (`src/services/layout-algorithms.ts`)
-  ```typescript
-  export function gridAlign(
-    elements: ExcalidrawElement[], 
-    options: { spacing: number; snapToGrid: boolean }
-  ): ExcalidrawElement[]
-  ```
-  - 计算元素边界框
-  - 按网格规则重新排列位置
-  - 保持相对关系不变
-
-#### 1.4 More Tools 菜单集成
-- [ ] **创建 MoreToolsMenu 组件** (`src/components/MoreToolsMenu.tsx`)
-  - 研究 Excalidraw 自定义菜单扩展方法
-  - 实现下拉菜单 UI
-  - 处理菜单项点击事件
+#### 1.3 MainMenu 原生集成 ✅
+- ✅ **使用 Excalidraw 官方 MainMenu API**
+  - ✅ Layout Tools 分组，包含 Auto Layout 功能
+  - ✅ 完整的错误处理和控制台日志
+  - ✅ 用户界面简化为单一 Auto Layout 选项
 
 #### 1.5 主应用集成
 - [ ] **修改 App.tsx**
@@ -84,51 +70,43 @@ excalidrawAPI.updateScene({
 - 大量元素时使用 Web Worker 进行布局计算
 - 实现操作撤销/重做支持
 
-## Phase 2: 智能布局扩展 (1-2周)
+## Phase 2: 智能布局算法增强 ✅ **已完成**
 
-### 任务分解
+### 实际完成内容
 
-#### 2.1 智能分组算法
-- [ ] **群体检测算法** (`src/services/clustering.ts`)
+#### 2.1 elkjs 布局引擎集成 ✅
+- ✅ **基于用户角色和图表类型的智能算法选择**
+  - ✅ 支持 6 种布局算法：Box、Layered、MrTree、Stress、Force、Grid
+  - ✅ 智能模式识别：程序架构图、业务流程图、时序图、类图等
+  
+#### 2.2 用户体验简化 ✅
+- ✅ **一键智能布局**
+  - ✅ 零学习成本，自动选择最佳算法
+  - ✅ 仅处理选中元素，不影响其他内容
+  - ✅ 快捷键支持：Cmd/Ctrl+Shift+L
+  - ✅ 完整的撤销支持
+
+#### 2.3 智能识别系统 ✅
+- ✅ **图表类型识别**
   ```typescript
-  export function detectGroups(
-    elements: ExcalidrawElement[],
-    options: { maxDistance: number; minGroupSize: number }
-  ): ExcalidrawElement[][]
+  // 程序架构图: 大量框图(>5)，框/箭头比>3 → Box算法
+  // 业务流程图: 决策节点，线性流程 → Layered(DOWN)
+  // 时序图: 水平参与者，垂直消息流 → Layered(RIGHT)  
+  // 类图: 类结构，继承关系 → MrTree
+  // 复杂网状图: 连接密度>2 → Stress算法
+  // 通用场景: 无明确模式 → 智能网格
   ```
-  - 使用K-means或DBSCAN算法
-  - 基于元素距离和类型进行聚类
 
-#### 2.2 流程图优化算法
-- [ ] **有向图布局** (`src/services/flow-layout.ts`)
-  ```typescript
-  export function flowOptimize(
-    elements: ExcalidrawElement[],
-    options: { direction: 'vertical' | 'horizontal'; spacing: number }
-  ): ExcalidrawElement[]
-  ```
-  - 识别箭头连接关系
-  - 应用分层布局算法（如 Sugiyama）
-  - 优化连线长度和交叉
+#### 2.4 MainMenu 集成完成 ✅
+- ✅ **Excalidraw 官方 MainMenu API 集成**
+  - ✅ Layout Tools 分组，包含 Auto Layout 功能
+  - ✅ 完整的错误处理和控制台日志
+  - ✅ 用户界面简化为单一 Auto Layout 选项
 
-#### 2.3 用户配置选项
-- [ ] **布局配置面板** (`src/components/LayoutConfigPanel.tsx`)
-  - 间距调整滑块
-  - 对齐方式选择
-  - 实时预览功能
-
-#### 2.4 高级功能
-- [ ] **布局预览模式**
-  - 显示布局前后对比
-  - 提供取消/确认选项
-- [ ] **自定义布局模板**
-  - 保存常用布局配置
-  - 快速应用预设
-
-### 算法复杂度考虑
-- 网格对齐：O(n) - 线性复杂度
-- 智能分组：O(n²) - 需要计算距离矩阵
-- 流程优化：O(n log n) - 图算法复杂度
+### 算法性能优化 ✅
+- ✅ elkjs 专业引擎: O(n log n) 复杂度，支持大规模元素
+- ✅ 智能模式识别: O(n) 线性复杂度
+- ✅ 实时性能监控和日志记录
 
 ## Phase 3: AI图表生成 (2-3周)
 
@@ -147,70 +125,48 @@ excalidrawAPI.updateScene({
   }
   ```
 
-- [ ] **配置存储服务** (`src/stores/ai-config-store.ts`)
-  - 使用 Tauri Store API 持久化配置
-  - API Key 加密存储
-  - 配置校验和默认值
+- ✅ **Zustand 状态管理** (`src/store/useAIConfigStore.ts`)
+  - ✅ 持久化配置存储
+  - ✅ API 连接测试和验证
+  - ✅ 多供应商支持（OpenAI、Azure、Custom）
 
-#### 3.2 AI服务实现
-- [ ] **OpenAI兼容API客户端** (`src/services/ai-service.ts`)
-  ```typescript
-  export class AIService {
-    async generateMermaidChart(
-      text: string,
-      chartType: 'flowchart' | 'sequenceDiagram',
-      config: AIConfig
-    ): Promise<{ mermaidCode: string; explanation?: string }>
-    
-    async validateApiKey(config: AIConfig): Promise<boolean>
-  }
-  ```
+#### 3.2 AI服务实现 ✅
+- ✅ **完整的 OpenAI 兼容服务** (`src/services/AIService.ts`)
+  - ✅ 流式和非流式生成支持
+  - ✅ 智能错误处理和重试机制
+  - ✅ Token 估算和用量控制
+  - ✅ 请求取消和超时处理
 
-#### 3.3 Mermaid集成
-- [ ] **Mermaid转换服务** (`src/services/mermaid-converter.ts`)
-  ```typescript
-  import { parseMermaidToExcalidraw, convertToExcalidrawElements } from '@excalidraw/mermaid-to-excalidraw'
-  
-  export async function convertMermaidToExcalidraw(
-    mermaidCode: string
-  ): Promise<{ elements: ExcalidrawElement[]; files: BinaryFiles }>
-  ```
+#### 3.3 Mermaid集成 ✅
+- ✅ **完整的 Mermaid 转换服务** (`src/services/MermaidConverter.ts`)
+  - ✅ 支持多种 Mermaid 图表类型
+  - ✅ 语法验证和错误修复
+  - ✅ 自动位置计算和画布插入
 
-#### 3.4 文本生成图表弹窗
-- [ ] **TextToChartDialog 组件** (`src/components/TextToChartDialog.tsx`)
-  - 基于 CustomDialog 扩展
-  - 多行文本输入区域
-  - 图表类型选择器
-  - 实时字数统计
-  - AI配置快捷入口
+#### 3.4 用户界面完善 ✅
+- ✅ **Text to Chart 对话框** (`src/components/TextToChartDialog/`)
+  - ✅ 图表类型选择和复杂度控制
+  - ✅ 实时 Mermaid 代码流式输出
+  - ✅ 可编辑的代码编辑器
+  - ✅ 实时预览和导入功能
 
-#### 3.5 提示词工程
-- [ ] **AI提示词模板** (`src/prompts/chart-generation.ts`)
-  ```typescript
-  export const FLOWCHART_PROMPT = `
-  Convert the following description into a Mermaid flowchart syntax:
-  Description: {userInput}
-  
-  Requirements:
-  - Use standard Mermaid flowchart syntax
-  - Include proper node shapes and connections
-  - Add labels for clarity
-  - Keep it simple and readable
-  
-  Output only the Mermaid code without explanation.
-  `
-  ```
+#### 3.5 AI 提示词优化 ✅
+- ✅ **智能提示词模板** (集成在 AIService.ts 中)
+  - ✅ Mermaid 语法规范和示例
+  - ✅ 避免常见语法错误的规则
+  - ✅ 中英文提示词适配
+  - ✅ 复杂度控制（简单/详细）
 
-### AI功能增强
-- [ ] **智能错误处理**
-  - API调用失败重试机制
-  - Mermaid语法错误自动修复
-  - 用户友好的错误提示
+### AI功能增强 ✅
+- ✅ **智能错误处理**
+  - ✅ API调用失败重试机制
+  - ✅ 用户友好的错误提示和分类
+  - ✅ 超时和取消支持
 
-- [ ] **结果优化**
-  - 生成结果的后处理
-  - 图表美化建议
-  - 一键应用布局算法
+- ✅ **结果优化**
+  - ✅ 可编辑的 Mermaid 代码功能
+  - ✅ 实时预览和导入
+  - ✅ 与 Auto Layout 功能集成
 
 ## 通用技术考虑
 

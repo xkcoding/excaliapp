@@ -85,7 +85,7 @@ export function EmptyState() {
             <span>{t('app.developer')}</span>
           </div>
           <div className="text-xs text-gray-400 text-center mb-1">
-            {t('app.version', { version: 'v0.2.0', buildDate: '2025-08-28' })}
+            {t('app.version', { version: 'v0.3.0', buildDate: '2025-09-01' })}
           </div>
         </div>
       </div>

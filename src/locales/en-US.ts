@@ -193,9 +193,7 @@ export const translations: TranslationKeys = {
           description: 'Neat grid arrangement for simple and organized element display',
           bestFor: ['Card Displays', 'Icon Arrays', 'Simple Grouping', 'Regular Display']
         }
-      },
-      
-      bestForLabel: 'Best for:'
+      }
     }
   },
 

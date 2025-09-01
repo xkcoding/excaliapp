@@ -202,37 +202,39 @@ export const useI18nStore = create<I18nStore>()(
       detectSystemLanguage,
 
       initialize: async () => {
+        console.log('🌐 I18n store initialize called')
         const { config, loadTranslations, switchLanguage } = get()
         
         try {
           set({ isLoading: true, error: null })
+          console.log('🔄 I18n loading started, current config:', config)
           
-          // 如果启用自动检测，检测系统语言
+          // 强制使用存储的语言，不自动检测
           let targetLanguage = config.currentLanguage
-          if (config.autoDetect) {
-            const systemLang = detectSystemLanguage()
-            targetLanguage = systemLang
-          }
+          console.log('🎯 Target language:', targetLanguage)
           
           // 加载目标语言和备用语言
+          console.log('📚 Loading translations...')
           await Promise.all([
             loadTranslations(targetLanguage),
             loadTranslations(config.fallbackLanguage)
           ])
+          console.log('✅ Translations loaded successfully')
           
-          // 切换到目标语言
-          if (targetLanguage !== config.currentLanguage) {
-            await switchLanguage(targetLanguage)
-          } else {
-            const loadedTranslations = getTranslations(targetLanguage)
-            set({ 
-              currentTranslations: loadedTranslations,
-              isLoading: false 
-            })
-          }
+          // 设置当前翻译
+          const loadedTranslations = getTranslations(targetLanguage)
+          set({ 
+            currentTranslations: loadedTranslations,
+            isLoading: false 
+          })
+          console.log('✅ I18n initialization complete')
           
         } catch (error) {
+          console.error('❌ I18n initialization failed:', error)
+          // 即使失败也要设置基本状态以避免白屏
+          const fallbackTranslations = getTranslations('zh-CN')
           set({ 
+            currentTranslations: fallbackTranslations,
             error: 'Failed to initialize i18n', 
             isLoading: false 
           })

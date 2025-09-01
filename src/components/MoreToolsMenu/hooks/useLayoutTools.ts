@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { ExcalidrawAPI, ExcalidrawElement, ExcalidrawAppState, LayoutToolsHook } from '../types'
 import { layoutService } from '../../../services/layout'
-import { LayoutAlgorithm, LayoutDirection } from '../../../types/layout'
+import { LayoutAlgorithmType, LayoutDirection } from '../../../types/layout'
 
 /**
  * Hook for layout tools that provide intelligent element arrangement
@@ -10,7 +10,7 @@ import { LayoutAlgorithm, LayoutDirection } from '../../../types/layout'
 export function useLayoutTools(excalidrawAPI: ExcalidrawAPI): LayoutToolsHook {
   // Layout with manual algorithm selection
   const applyLayout = useCallback(async (
-    algorithm: LayoutAlgorithm, 
+    algorithm: LayoutAlgorithmType, 
     spacing: { x: number; y: number }, 
     direction?: string
   ) => {
@@ -50,7 +50,7 @@ export function useLayoutTools(excalidrawAPI: ExcalidrawAPI): LayoutToolsHook {
       
       // Create analysis result with user's choice
       const analysis = {
-        algorithm,
+        algorithm: algorithm as LayoutAlgorithmType,
         direction: direction as LayoutDirection,
         spacing,
         preserveGroups: algorithm === 'box' || algorithm === 'mrtree',
@@ -192,8 +192,7 @@ export function useLayoutTools(excalidrawAPI: ExcalidrawAPI): LayoutToolsHook {
       })
 
       excalidrawAPI.updateScene({
-        elements: finalElements,
-        commitToHistory: true
+        elements: finalElements
       })
       
       // Center the laid out elements in the viewport
@@ -265,7 +264,11 @@ export function useLayoutTools(excalidrawAPI: ExcalidrawAPI): LayoutToolsHook {
   }, [excalidrawAPI, applyLayout])
   
   return {
-    autoLayout,
-    applyLayout
+    autoLayout: async () => await autoLayout(),
+    applyLayout,
+    gridAlign: async () => {},
+    smartGroup: async () => {},
+    verticalFlow: async () => {},
+    horizontalFlow: async () => {}
   }
 }

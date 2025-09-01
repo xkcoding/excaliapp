@@ -3,12 +3,29 @@
  * Defines interfaces for intelligent auto-layout functionality
  */
 
-import type { ExcalidrawElement } from '@excalidraw/excalidraw/types'
+import type { ExcalidrawElement } from '@excalidraw/excalidraw/dist/types/excalidraw/element/types'
 
 /**
  * Available layout algorithms from elkjs
  */
-export type LayoutAlgorithm = 'box' | 'layered' | 'mrtree' | 'stress' | 'grid'
+export type LayoutAlgorithmType = 'box' | 'layered' | 'mrtree' | 'stress' | 'grid'
+
+/**
+ * Algorithm configuration interface
+ */
+export interface LayoutAlgorithm {
+  id: string
+  name: string
+  description: string
+  icon: string
+  requiresSelection: boolean
+  minElements: number
+  defaultOptions: Record<string, any>
+  configSchema: any[]
+  apply: (elements: any, options: any) => Promise<any>
+  validate: () => { valid: boolean; message?: string }
+  estimateTime: () => number
+}
 
 /**
  * Layout direction for directional algorithms
@@ -20,7 +37,7 @@ export type LayoutDirection = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT'
  */
 export interface LayoutAnalysisResult {
   /** Selected algorithm */
-  algorithm: LayoutAlgorithm
+  algorithm: LayoutAlgorithmType
   /** Direction for layered algorithms */
   direction?: LayoutDirection
   /** Spacing configuration */
@@ -103,6 +120,10 @@ export interface LayoutResult {
   reason?: string
   /** Error message if failed */
   message?: string
+  /** Layout statistics */
+  stats?: any
+  /** Error object if failed */
+  error?: any
 }
 
 /**

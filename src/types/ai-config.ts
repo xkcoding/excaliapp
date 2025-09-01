@@ -135,8 +135,18 @@ export const AI_PROVIDERS: Record<string, AIProvider> = {
     },
     supportedModels: ['gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo'],
     validateConfig: async (config: AIConfig) => {
-      // OpenAI API validation logic
-      return true
+      try {
+        const response = await fetch(`${config.baseUrl}/models`, {
+          headers: {
+            'Authorization': `Bearer ${config.apiKey}`
+          },
+          signal: AbortSignal.timeout(10000)
+        })
+        return response.ok
+      } catch (error) {
+        console.error('OpenAI validation error:', error)
+        return false
+      }
     }
   },
   azure: {

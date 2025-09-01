@@ -4,77 +4,159 @@
 
 ### 布局相关接口
 
+> **参考实现**: Obsidian Excalidraw 插件的布局算法架构  
+> **核心引擎**: elkjs 专业图形布局引擎
+
 ```typescript
 // src/types/layout.ts
 
-export interface LayoutAlgorithm {
-  /** 算法唯一标识 */
-  id: string
-  /** 显示名称 */
-  name: string
-  /** 算法描述 */
-  description: string
-  /** 菜单图标名称 */
-  icon: string
-  /** 是否需要选中元素 */
-  requiresSelection: boolean
-  /** 最小元素数量要求 */
-  minElements: number
-  /** 执行算法 */
-  apply: (elements: ExcalidrawElement[], options?: LayoutOptions) => Promise<ExcalidrawElement[]>
+/** 支持的布局算法类型 - 基于elkjs引擎 */
+export type LayoutAlgorithm = 'box' | 'layered' | 'mrtree' | 'stress' | 'grid'
+
+/** 布局方向 */
+export type LayoutDirection = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT'
+
+/** 智能布局分析结果 */
+export interface LayoutAnalysisResult {
+  /** 选择的算法 */
+  algorithm: LayoutAlgorithm
+  /** 布局方向（用于分层算法） */
+  direction?: LayoutDirection
+  /** 元素间距配置 */
+  spacing: { x: number; y: number }
+  /** 是否保持元素分组 */
+  preserveGroups: boolean
+  /** 算法选择置信度 */
+  confidence: number
+  /** 选择原因说明 */
+  reason: string
 }
 
-export interface LayoutOptions {
-  /** 元素间距 */
-  spacing?: number
-  /** 对齐方式 */
-  alignment?: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom'
-  /** 布局方向 */
-  direction?: 'vertical' | 'horizontal' | 'auto'
-  /** 对齐到网格 */
-  snapToGrid?: boolean
-  /** 保持原始连线 */
-  preserveConnections?: boolean
-  /** 动画时长 */
-  animationDuration?: number
-}
-
+/** 布局服务执行结果 */
 export interface LayoutResult {
-  /** 布局后的元素 */
-  elements: ExcalidrawElement[]
-  /** 是否有变化 */
-  hasChanges: boolean
-  /** 变化统计 */
-  stats: {
-    movedElements: number
-    totalElements: number
+  /** 执行是否成功 */
+  success: boolean
+  /** 使用的算法 */
+  algorithm: LayoutAlgorithm
+  /** 布局方向 */
+  direction?: LayoutDirection
+  /** 位置更新数据 */
+  elements: Array<{ id: string; x: number; y: number }>
+  /** 执行元数据 */
+  metadata: {
     executionTime: number
+    transformations: number
+    confidence: number
   }
+  /** 失败时的错误信息 */
+  message?: string
+  /** 算法选择原因 */
+  reason?: string
 }
 
-export interface GridOptions extends LayoutOptions {
-  /** 网格大小 */
-  gridSize: number
-  /** 网格偏移 */
-  offset: { x: number; y: number }
+/** 元素连接关系 */
+export interface Connection {
+  sourceId: string
+  targetId: string
+  type: 'arrow' | 'line'
+  element: ExcalidrawElement
 }
 
-export interface FlowOptions extends LayoutOptions {
-  /** 节点间垂直距离 */
-  rankSeparation: number
-  /** 同层节点间距离 */
-  nodeSeparation: number
-  /** 边的类型 */
-  edgeType: 'straight' | 'curve' | 'step'
+/** 元素分析数据 */
+export interface ElementAnalysis {
+  totalElements: number
+  rectangleCount: number
+  textCount: number
+  connectionCount: number
+  boxToArrowRatio: number
+  connectionDensity: number
+  hasDecisionNodes: boolean
+  hasLinearFlow: boolean
+  hasHorizontalActors: boolean
+  hasVerticalMessages: boolean
+  hasClassStructure: boolean
+  hasInheritanceConnections: boolean
 }
 
-export interface GroupOptions extends LayoutOptions {
-  /** 分组检测距离阈值 */
-  maxDistance: number
-  /** 最小分组大小 */
-  minGroupSize: number
-  /** 分组间距 */
-  groupSpacing: number
+/** elkjs 节点定义 */
+export interface ElkNode {
+  id: string
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+  layoutOptions?: ElkLayoutOptions
+  children?: ElkNode[]
+  edges?: ElkEdge[]
+}
+
+/** elkjs 边定义 */
+export interface ElkEdge {
+  id: string
+  sources: string[]
+  targets: string[]
+}
+
+/** elkjs 布局选项 */
+export interface ElkLayoutOptions {
+  'elk.algorithm': string
+  'elk.spacing.nodeNode'?: number
+  'elk.spacing.edgeNode'?: number
+  'elk.direction'?: LayoutDirection
+  [key: string]: any
+}
+```
+
+### 模式识别智能算法
+
+```typescript
+/** 智能模式识别策略 */
+class PatternAnalyzer {
+  /** 时序图检测：水平参与者 + 垂直消息流 */
+  detectSequenceDiagram(): LayoutAnalysisResult {
+    return {
+      algorithm: 'layered',
+      direction: 'DOWN',
+      spacing: { x: 150, y: 80 },
+      preserveGroups: false,
+      confidence: 0.95,
+      reason: '检测到时序图：水平参与者和垂直消息流'
+    }
+  }
+  
+  /** 架构图检测：多组件少连接 */
+  detectArchitectureDiagram(): LayoutAnalysisResult {
+    return {
+      algorithm: 'box',
+      spacing: { x: 120, y: 100 },
+      preserveGroups: true,
+      confidence: 0.9,
+      reason: '检测到架构图：多组件少连接'
+    }
+  }
+  
+  /** 业务流程检测：决策节点 + 线性流程 */
+  detectBusinessFlow(): LayoutAnalysisResult {
+    return {
+      algorithm: 'layered',
+      direction: 'DOWN',
+      spacing: { x: 100, y: 60 },
+      preserveGroups: true,
+      confidence: 0.7,
+      reason: '检测到业务流程：决策节点和线性流程'
+    }
+  }
+  
+  /** 复杂网络检测：高连接密度 */
+  detectNetworkDiagram(): LayoutAnalysisResult {
+    return {
+      algorithm: 'stress',
+      spacing: { x: 100, y: 100 },
+      preserveGroups: false,
+      confidence: 0.75,
+      reason: '检测到复杂网络：高连接密度'
+    }
+  }
 }
 ```
 
@@ -159,56 +241,51 @@ export interface AIError extends Error {
 
 ## 服务层接口
 
-### 布局算法服务
+### 智能布局服务
 
 ```typescript
-// src/services/layout-algorithms.ts
+// src/services/layout/LayoutService.ts
 
-export interface ILayoutService {
-  /** 获取所有可用算法 */
-  getAvailableAlgorithms(): LayoutAlgorithm[]
+/** 智能布局分析服务 - 基于elkjs引擎 */
+export class LayoutService {
+  private elk: ELK
+
+  /** 智能一键布局优化 */
+  async optimizeLayout(elements: ExcalidrawElement[]): Promise<LayoutResult>
   
-  /** 获取特定算法 */
-  getAlgorithm(id: string): LayoutAlgorithm | null
+  /** 智能模式识别和算法选择 */
+  private analyzeLayoutPattern(
+    elements: ExcalidrawElement[], 
+    connections: Connection[]
+  ): LayoutAnalysisResult
   
-  /** 执行布局算法 */
-  applyLayout(
-    algorithmId: string,
-    elements: ExcalidrawElement[],
-    options?: LayoutOptions
-  ): Promise<LayoutResult>
-  
-  /** 预览布局效果 */
-  previewLayout(
-    algorithmId: string,
-    elements: ExcalidrawElement[],
-    options?: LayoutOptions
-  ): Promise<LayoutResult>
-  
-  /** 验证元素是否适用于算法 */
-  validateElements(
-    algorithmId: string,
-    elements: ExcalidrawElement[]
-  ): { valid: boolean; reason?: string }
+  /** 获取支持的布局算法 */
+  getSupportedAlgorithms(): LayoutAlgorithm[]
 }
 
-/** 网格对齐算法 */
-export function gridAlign(
-  elements: ExcalidrawElement[],
-  options: GridOptions
-): Promise<ExcalidrawElement[]>
+/** 智能模式识别算法 */
+interface PatternDetection {
+  /** 时序图模式：水平参与者 + 垂直消息流 */
+  hasSequenceDiagramPattern(elements: ExcalidrawElement[]): boolean
+  
+  /** 架构图模式：多框少箭头，箱/箭头比>3 */
+  hasArchitecturePattern(elements: ExcalidrawElement[]): boolean
+  
+  /** 业务流程模式：决策节点 + 线性流程 */
+  hasBusinessFlowPattern(elements: ExcalidrawElement[]): boolean
+  
+  /** 复杂网状模式：连接密度>2 */
+  hasNetworkPattern(elements: ExcalidrawElement[]): boolean
+}
 
-/** 智能分组算法 */
-export function smartGroup(
-  elements: ExcalidrawElement[],
-  options: GroupOptions
-): Promise<ExcalidrawElement[]>
-
-/** 流程图优化算法 */
-export function flowOptimize(
-  elements: ExcalidrawElement[],
-  options: FlowOptions
-): Promise<ExcalidrawElement[]>
+/** elkjs 算法映射 */
+interface ElkAlgorithmMapping {
+  box: 'rectpacking'        // 包装算法，适用于架构图
+  layered: 'layered'        // 分层算法，适用于流程图/时序图
+  mrtree: 'mrtree'          // 树形算法，适用于类图
+  stress: 'stress'          // 力导向算法，适用于复杂网络
+  grid: 'rectpacking'       // 网格布局，通用场景
+}
 ```
 
 ### AI 服务接口
