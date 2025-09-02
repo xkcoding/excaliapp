@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as Select from '@radix-ui/react-select'
 import * as Label from '@radix-ui/react-label'
+import { Bot, Copy, Edit3, Eye, RotateCw, Download, X, CheckCircle, AlertCircle, BarChart3, Workflow, Clock, Package } from 'lucide-react'
 import { 
   ChartType, 
   ChartGenerationRequest, 
@@ -11,6 +12,21 @@ import {
 import { useAIConfig } from '../../store/useAIConfigStore'
 import { useTranslation } from '../../store/useI18nStore'
 import mermaid from 'mermaid'
+
+// Icon mapping function
+const getChartTypeIcon = (iconName: string, size = 16) => {
+  const iconProps = { size }
+  switch (iconName) {
+    case 'workflow':
+      return <Workflow {...iconProps} />
+    case 'clock':
+      return <Clock {...iconProps} />
+    case 'package':
+      return <Package {...iconProps} />
+    default:
+      return <BarChart3 {...iconProps} />
+  }
+}
 
 export interface TextToChartDialogProps {
   isOpen: boolean
@@ -215,8 +231,9 @@ export const TextToChartDialog: React.FC<TextToChartDialogProps> = ({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
         <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-lg p-6 z-50 max-h-[90vh] overflow-auto w-full max-w-6xl">
-          <Dialog.Title className="text-xl font-semibold mb-4">
-            🤖 {t('ai.textToChart.title')}
+          <Dialog.Title className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <Bot size={20} />
+            {t('ai.textToChart.title')}
           </Dialog.Title>
           <Dialog.Description className="sr-only">
             {t('ai.textToChart.description')}
@@ -234,7 +251,7 @@ export const TextToChartDialog: React.FC<TextToChartDialogProps> = ({
                   <Select.Root value={selectedChartType} onValueChange={handleChartTypeChange}>
                     <Select.Trigger className="w-full p-3 border border-gray-300 rounded-md bg-white flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span>{selectedChartConfig?.icon}</span>
+                        {getChartTypeIcon(selectedChartConfig?.icon || 'workflow')}
                         <Select.Value />
                       </div>
                       <Select.Icon className="ml-2">▼</Select.Icon>
@@ -248,7 +265,7 @@ export const TextToChartDialog: React.FC<TextToChartDialogProps> = ({
                               value={option.value}
                               className="flex items-center gap-2 p-2 rounded hover:bg-gray-100 cursor-pointer"
                             >
-                              <span>{option.icon}</span>
+                              {getChartTypeIcon(option.icon)}
                               <Select.ItemText className="font-medium">
                                 {option.label}
                               </Select.ItemText>
@@ -283,7 +300,9 @@ export const TextToChartDialog: React.FC<TextToChartDialogProps> = ({
                       {textInput.valid ? (
                         <span className="text-green-600">✓ 可以生成</span>
                       ) : (
-                        <span className="text-red-600">⚠ 描述不够详细</span>
+                        <span className="text-red-600 flex items-center gap-1">
+                          <AlertCircle size={12} /> 描述不够详细
+                        </span>
                       )}
                     </div>
                   </div>
@@ -336,8 +355,13 @@ export const TextToChartDialog: React.FC<TextToChartDialogProps> = ({
                       <span className={`w-2 h-2 rounded-full ${isConfigComplete ? 'bg-green-500' : 'bg-red-500'}`} />
                       <span>{t('ai.textToChart.configStatus')}</span>
                     </div>
-                    <div className="text-gray-600">
-                      {isConfigComplete ? t('ai.textToChart.configured') : t('ai.textToChart.needsConfig')}
+                    <div className="flex items-center gap-2 text-gray-600">
+                      {isConfigComplete ? (
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 text-red-500" />
+                      )}
+                      <span>{isConfigComplete ? t('ai.textToChart.configured') : t('ai.textToChart.needsConfig')}</span>
                     </div>
                   </div>
                   
@@ -364,7 +388,7 @@ export const TextToChartDialog: React.FC<TextToChartDialogProps> = ({
                   <button
                     type="submit"
                     disabled={!textInput.valid || !isConfigComplete || isGenerating}
-                    className="w-full px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className="w-full px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2 h-10"
                   >
                     {isGenerating ? (
                       <>
@@ -373,7 +397,7 @@ export const TextToChartDialog: React.FC<TextToChartDialogProps> = ({
                       </>
                     ) : (
                       <>
-                        ✨ {t('ai.textToChart.generate')}
+                        <BarChart3 size={16} /> {t('ai.textToChart.generate')}
                       </>
                     )}
                   </button>
@@ -401,7 +425,7 @@ export const TextToChartDialog: React.FC<TextToChartDialogProps> = ({
               ) : !generatedMermaid ? (
                 <div className="border border-gray-200 rounded-md p-8 min-h-96 bg-gray-50 flex items-center justify-center">
                   <div className="text-center text-gray-500">
-                    <div className="text-4xl mb-2">📊</div>
+                    <BarChart3 size={48} className="mx-auto mb-2 text-gray-400" />
                     <div>生成后在此预览图表</div>
                   </div>
                 </div>
@@ -417,7 +441,11 @@ export const TextToChartDialog: React.FC<TextToChartDialogProps> = ({
                           className="px-2 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600 flex items-center gap-1"
                           title={isEditing ? "预览模式" : "编辑模式"}
                         >
-                          {isEditing ? "👁️ 预览" : "✏️ 编辑"}
+                          {isEditing ? (
+                            <><Eye size={12} /> 预览</>
+                          ) : (
+                            <><Edit3 size={12} /> 编辑</>
+                          )}
                         </button>
                         <button
                           onClick={async () => {
@@ -430,7 +458,7 @@ export const TextToChartDialog: React.FC<TextToChartDialogProps> = ({
                           className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 flex items-center gap-1"
                           title="复制代码"
                         >
-                          📋 复制
+                          <Copy size={12} /> 复制
                         </button>
                       </div>
                     </div>
@@ -459,9 +487,9 @@ export const TextToChartDialog: React.FC<TextToChartDialogProps> = ({
                           setIsEditing(false)
                           setTimeout(() => setIsEditing(true), 100) // 重新进入编辑模式以保持状态
                         }}
-                        className="px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
+                        className="px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600 flex items-center gap-1"
                       >
-                        ✅ 应用修改
+                        <CheckCircle size={12} /> 应用修改
                       </button>
                     </div>
                   )}
@@ -506,17 +534,21 @@ export const TextToChartDialog: React.FC<TextToChartDialogProps> = ({
                           setIsGenerating(false)
                         }
                       }}
-                      className="flex-1 px-3 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded text-sm disabled:opacity-50"
+                      className="flex-1 px-3 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded text-sm disabled:opacity-50 flex items-center justify-center gap-2 h-10"
                       disabled={isGenerating}
                     >
-                      {isGenerating ? '重新生成中...' : '🔄 重新生成'}
+                      {isGenerating ? (
+                        '重新生成中...'
+                      ) : (
+                        <><RotateCw size={14} /> 重新生成</>
+                      )}
                     </button>
                     
                     <button
                       onClick={handleImportToCanvas}
-                      className="flex-1 px-3 py-2 bg-green-500 text-white rounded hover:bg-green-600 text-sm"
+                      className="flex-1 px-3 py-2 bg-green-500 text-white rounded hover:bg-green-600 text-sm flex items-center justify-center gap-2 h-10"
                     >
-                      📥 导入画布
+                      <Download size={14} /> 导入画布
                     </button>
                   </div>
                   
@@ -549,7 +581,7 @@ export const TextToChartDialog: React.FC<TextToChartDialogProps> = ({
 
           <Dialog.Close asChild>
             <button className="absolute top-2 right-2 p-1 hover:bg-gray-100 rounded">
-              ✕
+              <X size={16} />
             </button>
           </Dialog.Close>
         </Dialog.Content>

@@ -193,7 +193,7 @@ export const CHART_TYPE_OPTIONS: ChartTypeOption[] = [
     value: 'flowchart',
     label: '流程图',
     description: '显示流程步骤和决策点',
-    icon: '🔄',
+    icon: 'workflow',
     example: 'graph TD; A[开始] --> B{判断}; B -->|是| C[执行]; B -->|否| D[结束];',
     prompt: '将以下描述转换为Mermaid流程图，使用清晰的节点和箭头连接'
   },
@@ -201,7 +201,7 @@ export const CHART_TYPE_OPTIONS: ChartTypeOption[] = [
     value: 'sequenceDiagram',
     label: '时序图',
     description: '显示对象间的交互序列',
-    icon: '⏳',
+    icon: 'clock',
     example: 'sequenceDiagram; participant A; participant B; A->>B: 请求; B-->>A: 响应;',
     prompt: '将以下交互过程转换为Mermaid时序图，清晰展示参与者和消息流'
   },
@@ -209,7 +209,7 @@ export const CHART_TYPE_OPTIONS: ChartTypeOption[] = [
     value: 'classDiagram',
     label: '类图',
     description: '显示类结构和关系',
-    icon: '📦',
+    icon: 'package',
     example: 'classDiagram; class User { +name +email +login() }',
     prompt: '将以下描述转换为Mermaid类图，展示类、属性和方法'
   }

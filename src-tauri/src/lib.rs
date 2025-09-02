@@ -96,6 +96,14 @@ impl Default for Preferences {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct LibraryItem {
+    pub id: String,
+    pub status: String,
+    pub created: i64,
+    pub elements: serde_json::Value,
+}
+
 pub struct AppState {
     pub current_directory: Mutex<Option<PathBuf>>,
     pub modified_files: Mutex<Vec<String>>,
@@ -1096,6 +1104,7 @@ async fn set_title(title: String, window: tauri::Window) -> Result<(), String> {
     Ok(())
 }
 
+
 #[tauri::command]
 async fn watch_directory(
     app: AppHandle,
@@ -1147,6 +1156,162 @@ async fn watch_directory(
     Ok(())
 }
 
+#[tauri::command]
+async fn save_personal_library_items(app: AppHandle, items: Vec<LibraryItem>) -> Result<(), String> {
+    use tauri_plugin_store::StoreExt;
+    
+    let store = app.store("personal_library.json").map_err(|e| e.to_string())?;
+    
+    store.set("personal_library_items", serde_json::to_value(&items).map_err(|e| e.to_string())?);
+    store.save().map_err(|e| e.to_string())?;
+    
+    Ok(())
+}
+
+#[tauri::command]
+async fn load_personal_library_items(app: AppHandle) -> Result<Vec<LibraryItem>, String> {
+    use tauri_plugin_store::StoreExt;
+    
+    let store = app.store("personal_library.json").map_err(|e| e.to_string())?;
+    
+    if let Some(value) = store.get("personal_library_items") {
+        match serde_json::from_value::<Vec<LibraryItem>>(value.clone()) {
+            Ok(items) => Ok(items),
+            Err(e) => {
+                eprintln!("Failed to deserialize personal library items: {}", e);
+                Ok(vec![])
+            }
+        }
+    } else {
+        Ok(vec![])
+    }
+}
+
+#[tauri::command]
+async fn save_excalidraw_library_items(app: AppHandle, items_json: String, append: Option<bool>) -> Result<(), String> {
+    use tauri_plugin_store::StoreExt;
+    
+    // Parse JSON string to Vec<LibraryItem>
+    let new_items: Vec<LibraryItem> = serde_json::from_str(&items_json)
+        .map_err(|e| format!("Failed to parse library items JSON: {}", e))?;
+    
+    let store = app.store("excalidraw_library.json").map_err(|e| e.to_string())?;
+    
+    let final_items = if append.unwrap_or(true) {
+        // Append mode (default): load existing items and append new ones
+        let mut existing_items = if let Some(value) = store.get("excalidraw_library_items") {
+            match serde_json::from_value::<Vec<LibraryItem>>(value.clone()) {
+                Ok(items) => {
+                    println!("Found {} existing Excalidraw library items", items.len());
+                    items
+                },
+                Err(_) => {
+                    println!("Failed to parse existing items, starting with empty");
+                    Vec::new()
+                }
+            }
+        } else {
+            println!("No existing Excalidraw library items found");
+            Vec::new()
+        };
+        
+        println!("Appending {} new items to {} existing items", new_items.len(), existing_items.len());
+        existing_items.extend(new_items);
+        println!("Final item count: {}", existing_items.len());
+        existing_items
+    } else {
+        // Replace mode: use new items directly
+        println!("Replace mode: using {} new items directly", new_items.len());
+        new_items
+    };
+    
+    store.set("excalidraw_library_items", serde_json::to_value(&final_items).map_err(|e| e.to_string())?);
+    store.save().map_err(|e| e.to_string())?;
+    
+    Ok(())
+}
+
+#[tauri::command]
+async fn load_excalidraw_library_items(app: AppHandle) -> Result<Vec<LibraryItem>, String> {
+    use tauri_plugin_store::StoreExt;
+    
+    let store = app.store("excalidraw_library.json").map_err(|e| e.to_string())?;
+    
+    // Debug: List all keys in the store
+    println!("=== DEBUG load_excalidraw_library_items ===");
+    let keys = store.keys();
+    println!("All keys in excalidraw_library.json store: {:?}", keys);
+    
+    if let Some(value) = store.get("excalidraw_library_items") {
+        println!("Found excalidraw_library_items key, raw value type: {:?}", value);
+        match serde_json::from_value::<Vec<LibraryItem>>(value.clone()) {
+            Ok(items) => {
+                println!("Successfully loaded {} excalidraw library items", items.len());
+                Ok(items)
+            },
+            Err(e) => {
+                println!("Failed to deserialize excalidraw library items: {}", e);
+                println!("Raw value: {:?}", value);
+                Ok(vec![])
+            }
+        }
+    } else {
+        println!("No excalidraw_library_items key found in store");
+        Ok(vec![])
+    }
+}
+
+#[tauri::command]
+async fn clear_excalidraw_library_items(app: AppHandle) -> Result<(), String> {
+    use tauri_plugin_store::StoreExt;
+    
+    let store = app.store("excalidraw_library.json").map_err(|e| e.to_string())?;
+    
+    // Set empty array
+    store.set("excalidraw_library_items", serde_json::Value::Array(vec![]));
+    store.save().map_err(|e| e.to_string())?;
+    
+    Ok(())
+}
+
+// Legacy function for backward compatibility
+#[tauri::command]
+async fn save_library_items(app: AppHandle, items: Vec<LibraryItem>) -> Result<(), String> {
+    save_personal_library_items(app, items).await
+}
+
+#[tauri::command]
+async fn load_combined_library_items(app: AppHandle) -> Result<Vec<LibraryItem>, String> {
+    // Load both personal and excalidraw libraries and combine them
+    let personal_items = load_personal_library_items(app.clone()).await?;
+    let excalidraw_items = load_excalidraw_library_items(app).await?;
+    
+    // Combine both libraries
+    let mut all_items = personal_items;
+    all_items.extend(excalidraw_items);
+    
+    Ok(all_items)
+}
+
+#[tauri::command]
+async fn load_library_items(app: AppHandle) -> Result<Vec<LibraryItem>, String> {
+    use tauri_plugin_store::StoreExt;
+
+    let store = app.store("library.json").map_err(|e| e.to_string())?;
+
+    let items = if let Some(value) = store.get("library_items") {
+        match serde_json::from_value::<Vec<LibraryItem>>(value.clone()) {
+            Ok(items) => items,
+            Err(_) => Vec::new(),
+        }
+    } else {
+        Vec::new()
+    };
+
+    println!("Loaded {} library items from store", items.len());
+    Ok(items)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -1155,6 +1320,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_deep_link::init())
         .setup(|app| {
             app.manage(AppState {
                 current_directory: Mutex::new(None),
@@ -1195,6 +1361,7 @@ pub fn run() {
                 }
             });
 
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -1221,6 +1388,13 @@ pub fn run() {
             force_close_app,
             restart_app,
             set_title,
+            save_library_items,
+            load_combined_library_items,
+            save_personal_library_items,
+            load_personal_library_items,
+            save_excalidraw_library_items,
+            load_excalidraw_library_items,
+            clear_excalidraw_library_items,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

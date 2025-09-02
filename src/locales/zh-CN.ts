@@ -105,8 +105,8 @@ export const translations: TranslationKeys = {
       cancel: '取消',
       tokenEstimate: '预计消耗：{{tokens}} tokens',
       configStatus: 'AI 配置状态',
-      configured: '✅ 已配置',
-      needsConfig: '❌ 需要配置',
+      configured: '已配置',
+      needsConfig: '需要配置',
       validationErrors: {
         tooShort: '描述至少需要10个字符',
         tooFewWords: '描述至少需要2个词',
@@ -147,6 +147,10 @@ export const translations: TranslationKeys = {
   layout: {
     layoutTools: '布局工具',
     autoLayout: '自动布局',
+    tree: '树形布局',
+    layer: '分层布局', 
+    grid: '网格布局',
+    circle: '环形布局',
     gridAlign: '网格对齐',
     smartGroup: '智能分组',
     verticalFlow: '垂直流程',
@@ -239,6 +243,18 @@ export const translations: TranslationKeys = {
     changeSuccess: '✅ 语言已切换成功',
     changeFailed: '❌ 语言切换失败: {{error}}',
     unknownError: '未知错误'
+  },
+
+  // 素材库
+  library: {
+    importing: '导入素材',
+    importSuccess: '导入成功',
+    importError: '导入失败',
+    importEmpty: '素材库为空',
+    downloadingMessage: '正在下载素材库...',
+    successMessage: '成功导入 {{count}} 个素材',
+    errorMessage: '导入素材时发生错误',
+    emptyMessage: '选择的素材库没有可导入的内容'
   },
 
   // 通用词汇

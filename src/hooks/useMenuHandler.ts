@@ -134,20 +134,12 @@ export function useMenuHandler() {
             handleDirectLayout('layered', { x: 150, y: 80 }, 'DOWN')
             break
 
-          case 'layout_box':
-            handleDirectLayout('box', { x: 100, y: 80 })
-            break
-
-          case 'layout_stress':
-            handleDirectLayout('stress', { x: 100, y: 100 })
-            break
-
           case 'layout_grid':
             handleDirectLayout('grid', { x: 80, y: 80 })
             break
 
-          case 'auto_layout':
-            handleAutoLayout()
+          case 'layout_box':
+            handleDirectLayout('box', { x: 100, y: 100 })
             break
 
           // Help menu commands
@@ -342,35 +334,6 @@ export function useMenuHandler() {
     }))
   }
 
-  const handleAutoLayout = () => {
-    if (!globalExcalidrawAPI) {
-      console.warn('Excalidraw API not available for layout')
-      return
-    }
-
-    const appState = globalExcalidrawAPI.getAppState()
-    const elements = globalExcalidrawAPI.getSceneElements()
-    const selectedElements = elements.filter((el: any) => 
-      appState.selectedElementIds[el.id]
-    )
-
-    if (selectedElements.length === 0) {
-      alert('请先选择要布局的元素')
-      return
-    }
-
-    // Trigger the original layout selection dialog
-    window.dispatchEvent(new CustomEvent('open-layout-selection', {
-      detail: { 
-        elementCount: selectedElements.length,
-        onSelect: (algorithm: string, spacing: { x: number; y: number }, direction?: string) => {
-          window.dispatchEvent(new CustomEvent('apply-direct-layout', {
-            detail: { algorithm, spacing, direction }
-          }))
-        }
-      }
-    }))
-  }
 
   const handleLanguageSwitch = async (language: 'zh-CN' | 'en-US') => {
     const { config, t } = useI18nStore.getState()

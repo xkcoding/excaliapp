@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { Excalidraw, MainMenu } from '@excalidraw/excalidraw'
+import { Grid, TreePine, Circle, RotateCw, Cog, Bot, Columns } from 'lucide-react'
+import { openUrl } from '@tauri-apps/plugin-opener'
+import { onOpenUrl } from '@tauri-apps/plugin-deep-link'
+import { invoke } from '@tauri-apps/api/core'
 // Type definitions for Excalidraw elements and state
 type ExcalidrawElement = any
 type ExcalidrawAppState = any
@@ -16,6 +20,7 @@ import { useAIConfig } from '../store/useAIConfigStore'
 import { useTranslation } from '../store/useI18nStore'
 import { MermaidConverter } from '../services/MermaidConverter'
 import { ChartGenerationRequest } from '../types/ai-config'
+import { LibraryImportDialog } from './LibraryImportDialog'
 
 export function ExcalidrawEditor() {
   const activeFile = useStore(state => state.activeFile)
@@ -48,6 +53,21 @@ export function ExcalidrawEditor() {
   // Layout selection dialog state
   const [isLayoutSelectionOpen, setIsLayoutSelectionOpen] = useState(false)
   const [layoutElementCount, setLayoutElementCount] = useState(0)
+  
+  // Library state
+  const [personalLibraryItems, setPersonalLibraryItems] = useState<any[]>([])
+  const [excalidrawLibraryItems, setExcalidrawLibraryItems] = useState<any[]>([])
+  const [libraryLoaded, setLibraryLoaded] = useState(false)
+  
+  // Library import dialog state
+  const [libraryImportStatus, setLibraryImportStatus] = useState<'downloading' | 'success' | 'error' | 'empty' | null>(null)
+  const [libraryImportCount, setLibraryImportCount] = useState(0)
+  const [libraryImportError, setLibraryImportError] = useState<string | null>(null)
+  
+  // Auto-grouping state
+  const previousElementsRef = useRef<ExcalidrawElement[]>([])
+  const autoGroupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isImportingRef = useRef(false)
 
 
   // Parse initial data from fileContent
@@ -79,12 +99,13 @@ export function ExcalidrawEditor() {
           scrollY: 0,
         },
         files: data.files,
+        libraryItems: [...personalLibraryItems, ...excalidrawLibraryItems], // Combine both libraries
       }
     } catch (error) {
       setIsLoading(false)
       return null
     }
-  }, [activeFile?.path]) // Only re-parse when switching files, not on content changes
+  }, [activeFile?.path, personalLibraryItems, excalidrawLibraryItems]) // Include both library dependencies
 
   // Center content and re-enable user change detection after initial load
   useEffect(() => {
@@ -156,6 +177,42 @@ export function ExcalidrawEditor() {
 
     // Update our baseline
     lastSavedElementsRef.current = currentElements
+
+    // Auto-grouping logic: detect newly added elements and group them
+    const currentElementsArray = Array.from(elements || [])
+    const previousElements = previousElementsRef.current
+    
+    // Find newly added elements (elements that weren't in the previous state)
+    const newElements = currentElementsArray.filter(current => 
+      !previousElements.some(prev => prev.id === current.id)
+    )
+    
+    // If multiple elements were added at once (likely from library), auto-group them
+    if (newElements.length >= 2) {
+      // Clear any existing timeout
+      if (autoGroupTimeoutRef.current) {
+        clearTimeout(autoGroupTimeoutRef.current)
+      }
+      
+      // Delay grouping slightly to ensure all elements are properly added
+      autoGroupTimeoutRef.current = setTimeout(() => {
+        try {
+          // Get the IDs of the new elements
+          const newElementIds = newElements.map(el => el.id)
+          
+          // Group the new elements using Excalidraw's API
+          if (excalidrawAPI && newElementIds.length >= 2) {
+            console.log(`🎯 Auto-grouping ${newElementIds.length} newly added elements`)
+            excalidrawAPI.groupElements(newElementIds)
+          }
+        } catch (error) {
+          console.error('Auto-grouping failed:', error)
+        }
+      }, 100) // Small delay to ensure elements are fully added
+    }
+    
+    // Update previous elements reference
+    previousElementsRef.current = currentElementsArray
 
     // Immediately mark as dirty so file switch detection works
     const store = useStore.getState()
@@ -296,13 +353,62 @@ export function ExcalidrawEditor() {
     }
   }, [excalidrawAPI, resetKey])
 
-  // Cleanup debounce timer on unmount or file change
+  // Load saved library items when excalidrawAPI is available
+  useEffect(() => {
+    const loadLibraryItems = async () => {
+      if (excalidrawAPI && !libraryLoaded) {
+        try {
+          console.log('Loading both personal and Excalidraw library items...')
+          
+          // Load both libraries separately
+          const [personalItems, excalidrawItems] = await Promise.all([
+            invoke('load_personal_library_items') as Promise<any[]>,
+            invoke('load_excalidraw_library_items') as Promise<any[]>
+          ])
+          
+          console.log('Personal library items:', personalItems.length)
+          console.log('Excalidraw library items:', excalidrawItems.length)
+          
+          setPersonalLibraryItems(personalItems)
+          setExcalidrawLibraryItems(excalidrawItems)
+          
+          // Load combined library items into Excalidraw
+          const combinedItems = [...personalItems, ...excalidrawItems]
+          if (combinedItems.length > 0) {
+            excalidrawAPI.updateLibrary({
+              libraryItems: combinedItems,
+              merge: false // Initial load, don't merge
+            })
+            
+            console.log('✅ Combined library items loaded successfully')
+          } else {
+            console.log('No library items found')
+          }
+          
+          setLibraryLoaded(true)
+        } catch (error) {
+          console.error('Failed to load library items:', error)
+          setLibraryLoaded(true) // Mark as attempted even if failed
+        }
+      }
+    }
+    
+    loadLibraryItems()
+  }, [excalidrawAPI, libraryLoaded])
+
+  // Cleanup timers on unmount or file change
   useEffect(() => {
     return () => {
-      // If there's a pending content update, flush it immediately before cleanup
+      // Clear debounce timer
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current)
         debounceTimerRef.current = null
+      }
+      
+      // Clear auto-group timer
+      if (autoGroupTimeoutRef.current) {
+        clearTimeout(autoGroupTimeoutRef.current)
+        autoGroupTimeoutRef.current = null
       }
     }
   }, [activeFile?.path])
@@ -357,6 +463,176 @@ export function ExcalidrawEditor() {
     }
   }, [layoutTools.applyLayout])
 
+  // Handle external library link clicks
+  useEffect(() => {
+    const handleClick = async (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      const link = target.closest('a[href*="libraries.excalidraw.com"]')
+      
+      if (link) {
+        event.preventDefault()
+        event.stopPropagation()
+        
+        try {
+          const originalHref = (link as HTMLAnchorElement).href
+          // Modify the URL to include our app as the target for returns
+          const url = new URL(originalHref)
+          url.searchParams.set('target', '_blank')  // 使用_blank让浏览器打开
+          url.searchParams.set('referrer', 'ownexcalidesk://app')  // 使用应用协议
+          
+          console.log('Opening external library:', url.toString())
+          await openUrl(url.toString())
+        } catch (error) {
+          console.error('Failed to open external library:', error)
+        }
+      }
+    }
+
+    // Listen for clicks on library buttons
+    document.addEventListener('click', handleClick, true)
+    
+    return () => {
+      document.removeEventListener('click', handleClick, true)
+    }
+  }, [])
+
+  // Handle deep link imports (when user returns from excalidraw.com)
+  useEffect(() => {
+    console.log('🔗 Setting up deep link listener, excalidrawAPI:', !!excalidrawAPI)
+    
+    const setupDeepLink = async () => {
+      try {
+        console.log('🔗 Registering deep link listener...')
+        const unsubscribe = await onOpenUrl(async (urls) => {
+          console.log('🔗 深链接触发:', urls.join(', '))
+          
+          for (const url of urls) {
+            if (url.includes('addLibrary=')) {
+              try {
+                console.log('✅ 开始处理素材库导入...')
+                
+                // Parse the deep link URL
+                const urlParts = url.split('#')
+                
+                if (urlParts.length > 1) {
+                  const params = new URLSearchParams(urlParts[1])
+                  const libraryUrl = params.get('addLibrary')
+                  
+                  if (libraryUrl && excalidrawAPI) {
+                    console.log('⬇️ 正在下载素材库...')
+                    
+                    // Show downloading dialog
+                    setLibraryImportStatus('downloading')
+                    setLibraryImportError(null)
+                    isImportingRef.current = true
+                    
+                    // Download library file using fetch (works in Tauri context)
+                    const response = await fetch(libraryUrl)
+                    console.log('📥 Response status:', response.status)
+                    
+                    const libraryData = await response.json()
+                    console.log('📚 Library data received:', libraryData)
+                    
+                    // Import to Excalidraw (directly update library)
+                    if (libraryData.library && libraryData.library.length > 0) {
+                      try {
+                        // Transform nested array structure to flat LibraryItem format
+                        const timestamp = Date.now()
+                        const libraryItems = libraryData.library.map((group: any[], index: number) => ({
+                          id: `excalidraw_group_${timestamp}_${index}_${Math.random().toString(36).substring(2, 11)}`,
+                          status: 'published',
+                          created: timestamp,
+                          elements: group
+                        }))
+                        
+                        // Debug info for troubleshooting - query backend directly for accurate count
+                        const existingExcalidrawItems = await invoke('load_excalidraw_library_items') as any[]
+                        const beforeCount = existingExcalidrawItems.length
+                        const newCount = libraryItems.length
+                        
+                        // Save downloaded library items to Excalidraw library (append to existing)
+                        await invoke('save_excalidraw_library_items', { itemsJson: JSON.stringify(libraryItems), append: true })
+                        
+                        // Reload Excalidraw library state from backend to ensure consistency
+                        const updatedExcalidrawItems = await invoke('load_excalidraw_library_items') as any[]
+                        setExcalidrawLibraryItems(updatedExcalidrawItems)
+                        
+                        // Debug message with better formatting
+                        const afterCount = updatedExcalidrawItems.length
+                        const debugMessage = `📊 素材库导入统计信息:
+
+🔸 导入前素材数量: ${beforeCount} 个
+🔸 本次新导入数量: ${newCount} 个  
+🔸 导入后总数量: ${afterCount} 个
+🔸 预期应有数量: ${beforeCount + newCount} 个
+
+${afterCount === beforeCount + newCount ? '✅ 导入成功，数量正确' : '⚠️  数量不匹配，可能存在问题'}
+
+💡 此信息仅在测试时显示，可手动关闭`
+                        
+                        // Update Excalidraw with combined libraries
+                        // Need to reload personal items from backend to ensure we have the latest
+                        const currentPersonalItems = await invoke('load_personal_library_items') as any[]
+                        const combinedItems = [...currentPersonalItems, ...updatedExcalidrawItems]
+                        
+                        console.log('Updating Excalidraw with combined items - Personal:', currentPersonalItems.length, 'Excalidraw:', updatedExcalidrawItems.length, 'Total:', combinedItems.length)
+                        
+                        excalidrawAPI.updateLibrary({
+                          libraryItems: combinedItems,
+                          merge: false // Replace entirely with combined items
+                        })
+                        
+                        // Show success dialog with debug info
+                        setLibraryImportStatus('success')
+                        setLibraryImportCount(newCount) // 本次导入的数量
+                        setLibraryImportError(debugMessage)
+                        isImportingRef.current = false
+                        console.log(`✅ 素材库导入成功！添加了 ${libraryData.library.length} 个素材`)
+                      } catch (updateError) {
+                        console.error('Failed to update library:', updateError)
+                        setLibraryImportStatus('error')
+                        // Show the full error message in the dialog for debugging
+                        const fullError = JSON.stringify(updateError, null, 2)
+                        setLibraryImportError(`更新素材库失败: ${fullError}`)
+                        isImportingRef.current = false
+                      }
+                    } else {
+                      console.log('❌ 素材库文件中没有找到素材项目')
+                      setLibraryImportStatus('empty')
+                    }
+                  } else {
+                    console.log('❌ Missing libraryUrl or excalidrawAPI')
+                  }
+                } else {
+                  console.log('❌ No hash fragment found in URL')
+                }
+              } catch (error) {
+                console.error('❌ Failed to import library from deep link:', error)
+                setLibraryImportStatus('error')
+                const errorMessage = error instanceof Error ? error.message : 
+                                   (typeof error === 'string' ? error : 'Unknown error')
+                setLibraryImportError(`素材库导入失败: ${errorMessage}`)
+                isImportingRef.current = false
+              }
+            } else {
+              console.log('ℹ️ URL does not contain addLibrary parameter')
+            }
+          }
+        })
+
+        console.log('✅ Deep link listener registered successfully')
+        return unsubscribe
+      } catch (error) {
+        console.error('❌ Failed to setup deep link listener:', error)
+        return () => {}
+      }
+    }
+
+    if (excalidrawAPI) {
+      setupDeepLink()
+    }
+  }, [excalidrawAPI])
+
 
   if (!activeFile) {
     return <EmptyState />
@@ -385,6 +661,55 @@ export function ExcalidrawEditor() {
           }}
           onChange={handleChange}
           langCode={language} // 透传语言设置到 Excalidraw
+          onLibraryChange={async (libraryItems) => {
+            // 只处理删除和清空操作，避免导入时的干扰
+            try {
+              console.log('Library changed, total items:', libraryItems.length)
+              
+              // Check if library was completely cleared
+              if (libraryItems.length === 0) {
+                console.log('Library was completely cleared - clearing both personal and Excalidraw libraries')
+                
+                // Clear both libraries in backend
+                await Promise.all([
+                  invoke('save_personal_library_items', { items: [] }),
+                  invoke('clear_excalidraw_library_items')
+                ])
+                
+                // Update local state
+                setPersonalLibraryItems([])
+                setExcalidrawLibraryItems([])
+                return
+              }
+              
+              // Only save if this is a deletion/modification, not an import
+              // We can detect import by checking if we're currently importing
+              if (isImportingRef.current) {
+                console.log('Ignoring library change during import process')
+                return
+              }
+              
+              // For library changes, separate personal and Excalidraw items by ID pattern
+              // Excalidraw items have IDs starting with 'excalidraw_group_'
+              // Personal items have other IDs (generated by Excalidraw itself)
+              const personalItems = libraryItems.filter(item => !item.id.startsWith('excalidraw_group_'))
+              const excalidrawItems = libraryItems.filter(item => item.id.startsWith('excalidraw_group_'))
+              
+              console.log('Library change - Personal items:', personalItems.length, 'Excalidraw items:', excalidrawItems.length)
+              
+              // Save both libraries (replace mode since we have the complete current state)
+              await Promise.all([
+                invoke('save_personal_library_items', { items: personalItems }),
+                invoke('save_excalidraw_library_items', { itemsJson: JSON.stringify(excalidrawItems), append: false })
+              ])
+              
+              // Update local state
+              setPersonalLibraryItems(personalItems)
+              setExcalidrawLibraryItems(excalidrawItems)
+            } catch (error) {
+              console.error('Failed to handle library change:', error)
+            }
+          }}
           UIOptions={{
             canvasActions: {
               loadScene: false,
@@ -395,6 +720,7 @@ export function ExcalidrawEditor() {
               },
             },
           }}
+          handleKeyboardGlobally={true}
         >
           <MainMenu>
             {/* 原始 Excalidraw 默认功能 */}
@@ -413,18 +739,44 @@ export function ExcalidrawEditor() {
             {/* 布局工具 */}
             <MainMenu.Group title={t('layout.layoutTools')}>
               <MainMenu.Item
-                onSelect={async () => {
-                  try {
-                    console.log('🤖 Auto Layout started')
-                    await layoutTools?.autoLayout()
-                    console.log('✨ Auto Layout executed')
-                  } catch (error) {
-                    console.error('Auto Layout failed:', error)
-                  }
+                onSelect={() => {
+                  window.dispatchEvent(new CustomEvent('apply-direct-layout', {
+                    detail: { algorithm: 'mrtree', spacing: { x: 120, y: 100 }, direction: 'DOWN' }
+                  }))
                 }}
-                icon={<span>✨</span>}
+                icon={<TreePine size={16} />}
               >
-                {t('layout.autoLayout')}
+                {t('layout.tree')}
+              </MainMenu.Item>
+              <MainMenu.Item
+                onSelect={() => {
+                  window.dispatchEvent(new CustomEvent('apply-direct-layout', {
+                    detail: { algorithm: 'layered', spacing: { x: 150, y: 80 }, direction: 'DOWN' }
+                  }))
+                }}
+                icon={<Columns size={16} />}
+              >
+                {t('layout.layer')}
+              </MainMenu.Item>
+              <MainMenu.Item
+                onSelect={() => {
+                  window.dispatchEvent(new CustomEvent('apply-direct-layout', {
+                    detail: { algorithm: 'grid', spacing: { x: 80, y: 80 } }
+                  }))
+                }}
+                icon={<Grid size={16} />}
+              >
+                {t('layout.grid')}
+              </MainMenu.Item>
+              <MainMenu.Item
+                onSelect={() => {
+                  window.dispatchEvent(new CustomEvent('apply-direct-layout', {
+                    detail: { algorithm: 'box', spacing: { x: 100, y: 100 } }
+                  }))
+                }}
+                icon={<Circle size={16} />}
+              >
+                {t('layout.circle')}
               </MainMenu.Item>
             </MainMenu.Group>
             
@@ -440,7 +792,7 @@ export function ExcalidrawEditor() {
                     setIsTextToChartOpen(true)
                   }
                 }}
-                icon={<span>🤖</span>}
+                icon={<Bot size={16} />}
               >
                 {t('ai.textToDiagram')} {!aiConfig.apiKey ? '⚠️' : ''}
               </MainMenu.Item>
@@ -459,13 +811,13 @@ export function ExcalidrawEditor() {
                   })
                   console.log('Canvas reset completed')
                 }}
-                icon={<span>🔄</span>}
+                icon={<RotateCw size={16} />}
               >
                 重置画布
               </MainMenu.Item>
               <MainMenu.Item
                 onSelect={() => window.dispatchEvent(new CustomEvent('open-ai-settings'))}
-                icon={<span>⚙️</span>}
+                icon={<Cog size={16} />}
               >
                 {t('ai.aiSettings')}
               </MainMenu.Item>
@@ -633,6 +985,18 @@ export function ExcalidrawEditor() {
           }
         }}
         elementCount={layoutElementCount}
+      />
+
+      {/* Library Import Dialog */}
+      <LibraryImportDialog
+        isOpen={libraryImportStatus !== null}
+        onClose={() => {
+          setLibraryImportStatus(null)
+          setLibraryImportError(null)
+        }}
+        status={libraryImportStatus || 'downloading'}
+        itemCount={libraryImportCount}
+        errorMessage={libraryImportError}
       />
 
     </div>

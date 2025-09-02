@@ -1,5 +1,50 @@
 # OwnExcaliDesk Changelog
 
+## 🎨 v0.4.0 - Professional Icon System & UI Polish (2025-09-02)
+
+### ✨ Professional Icon Upgrade
+
+**🎯 Lucide React Icon Integration**
+- Replaced all emoji icons with professional Lucide React icons throughout the application
+- Enhanced ExcalidrawEditor toolbar with consistent professional iconography
+- Updated TextToChartDialog with proper icon alignment and visual hierarchy
+- Standardized AI configuration status display with CheckCircle/AlertCircle icons
+
+**🔧 Layout System Optimization**
+- Streamlined layout menu by removing smart layout complexity
+- Direct access to layout algorithms (Tree, Layer, Grid, Circle) without popup dialogs
+- Fixed menu command mapping between Tauri backend and React frontend
+- Simplified algorithm names while maintaining functionality
+
+**🌐 Menu Bar & Internationalization Polish**
+- Optimized system menu bar layout names for professional appearance
+- Fixed internationalization placeholders showing "layout.xxxx" instead of proper translations
+- Added missing translation keys for all layout options in zh-CN and en-US
+- Updated TypeScript interfaces to match new translation structure
+
+### 🛠️ Technical Improvements
+
+**🎨 UI Consistency**
+- Consistent button heights and alignment across all dialogs
+- Professional icon sizing (16px for menu items, 20px for actions)
+- Improved visual spacing and layout in TextToChartDialog
+- Fixed AI configuration status layout with proper icon positioning
+
+**📚 Complete Library Management System**
+- Added network library import functionality with direct integration from Excalidraw community
+- Implemented intelligent categorization: network imports to "Excalidraw Library", manual additions to "Personal Library"
+- Full library persistence with complete retention of materials after app restart
+- Support for append import mode where new materials don't overwrite existing content
+- Enhanced library state management with real-time import progress and debug information
+
+**⚡ Code Quality**
+- Removed unused code and cleaned up component structure
+- Fixed TypeScript imports and icon mapping functions
+- Maintained backward compatibility while improving user experience
+- Enhanced component modularity and maintainability
+
+---
+
 ## 🤖 v0.3.0 - AI Chart Generation & Intelligent Layout (2025-09-01)
 
 ### 🎨 Perfect Handwritten Font Rendering

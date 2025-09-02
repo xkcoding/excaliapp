@@ -105,8 +105,8 @@ export const translations: TranslationKeys = {
       cancel: 'Cancel',
       tokenEstimate: 'Estimated usage: {{tokens}} tokens',
       configStatus: 'AI Configuration Status',
-      configured: '✅ Configured',
-      needsConfig: '❌ Needs Configuration',
+      configured: 'Configured',
+      needsConfig: 'Needs Configuration',
       validationErrors: {
         tooShort: 'Description must be at least 10 characters',
         tooFewWords: 'Description must be at least 2 words',
@@ -147,6 +147,10 @@ export const translations: TranslationKeys = {
   layout: {
     layoutTools: 'Layout Tools',
     autoLayout: 'Auto Layout',
+    tree: 'Tree Layout',
+    layer: 'Layer Layout',
+    grid: 'Grid Layout',
+    circle: 'Circle Layout',
     gridAlign: 'Grid Align',
     smartGroup: 'Smart Group',
     verticalFlow: 'Vertical Flow',
@@ -211,6 +215,18 @@ export const translations: TranslationKeys = {
     changeSuccess: '✅ Language switched successfully',
     changeFailed: '❌ Language switch failed: {{error}}',
     unknownError: 'Unknown error'
+  },
+
+  // Library
+  library: {
+    importing: 'Importing Library',
+    importSuccess: 'Import Successful',
+    importError: 'Import Failed',
+    importEmpty: 'Library Empty',
+    downloadingMessage: 'Downloading library resources...',
+    successMessage: 'Successfully imported {{count}} item{{count === 1 ? "" : "s"}}',
+    errorMessage: 'An error occurred while importing library',
+    emptyMessage: 'The selected library has no content to import'
   },
 
   // Common words

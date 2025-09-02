@@ -169,6 +169,10 @@ export interface TranslationKeys {
   layout: {
     layoutTools: string
     autoLayout: string
+    tree: string
+    layer: string
+    grid: string
+    circle: string
     gridAlign: string
     smartGroup: string
     verticalFlow: string
@@ -211,6 +215,18 @@ export interface TranslationKeys {
     changeSuccess: string
     changeFailed: string
     unknownError: string
+  }
+
+  // 素材库
+  library: {
+    importing: string
+    importSuccess: string
+    importError: string
+    importEmpty: string
+    downloadingMessage: string
+    successMessage: string
+    errorMessage: string
+    emptyMessage: string
   }
 
   // 通用词汇

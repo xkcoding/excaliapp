@@ -27,12 +27,10 @@ fn get_menu_text(key: &str, locale: &str) -> &'static str {
         ("zh-CN", "Preferences") => "偏好设置",
         ("zh-CN", "Window") => "窗口",
         ("zh-CN", "Help") => "帮助",
-        ("zh-CN", "layout_mrtree") => "🔀 流程图对称布局",
-        ("zh-CN", "layout_layered") => "📋 步骤序列布局",
-        ("zh-CN", "layout_box") => "📦 紧凑架构布局",
-        ("zh-CN", "layout_stress") => "🕸️ 关系网络布局",
-        ("zh-CN", "layout_grid") => "⚏ 整齐网格布局",
-        ("zh-CN", "auto_layout") => "🎯 智能选择布局...",
+        ("zh-CN", "layout_mrtree") => "树形布局",
+        ("zh-CN", "layout_layered") => "分层布局",
+        ("zh-CN", "layout_box") => "环形布局",
+        ("zh-CN", "layout_grid") => "网格布局",
         ("zh-CN", "Open Directory") => "打开目录",
         ("zh-CN", "New File") => "新建文件",
         ("zh-CN", "Save") => "保存",
@@ -62,12 +60,10 @@ fn get_menu_text(key: &str, locale: &str) -> &'static str {
         ("en-US", "Preferences") => "Preferences",
         ("en-US", "Window") => "Window",
         ("en-US", "Help") => "Help",
-        ("en-US", "layout_mrtree") => "🔀 Symmetric Flowchart",
-        ("en-US", "layout_layered") => "📋 Sequential Steps",
-        ("en-US", "layout_box") => "📦 Compact Architecture",
-        ("en-US", "layout_stress") => "🕸️ Network Relations",
-        ("en-US", "layout_grid") => "⚏ Clean Grid",
-        ("en-US", "auto_layout") => "🎯 Smart Layout Selection...",
+        ("en-US", "layout_mrtree") => "Tree Layout",
+        ("en-US", "layout_layered") => "Layer Layout",
+        ("en-US", "layout_box") => "Circle Layout",
+        ("en-US", "layout_grid") => "Grid Layout",
         ("en-US", "Open Directory") => "Open Directory",
         ("en-US", "New File") => "New File",
         ("en-US", "Save") => "Save",
@@ -98,12 +94,10 @@ fn get_menu_text(key: &str, locale: &str) -> &'static str {
         (_, "Preferences") => "Preferences",
         (_, "Window") => "Window",
         (_, "Help") => "Help",
-        (_, "layout_mrtree") => "🔀 Symmetric Flowchart",
-        (_, "layout_layered") => "📋 Sequential Steps",
-        (_, "layout_box") => "📦 Compact Architecture",
-        (_, "layout_stress") => "🕸️ Network Relations",
-        (_, "layout_grid") => "⚏ Clean Grid",
-        (_, "auto_layout") => "🎯 Smart Layout Selection...",
+        (_, "layout_mrtree") => "Tree Layout",
+        (_, "layout_layered") => "Layer Layout",
+        (_, "layout_box") => "Circle Layout",
+        (_, "layout_grid") => "Grid Layout",
         _ => "Unknown"
     }
 }
@@ -266,16 +260,7 @@ fn create_layout_menu<R: Runtime>(
     let architecture_layout = MenuItemBuilder::with_id("layout_box", get_menu_text("layout_box", &locale))
         .build(app)?;
     
-    let network_layout = MenuItemBuilder::with_id("layout_stress", get_menu_text("layout_stress", &locale))
-        .build(app)?;
-    
     let grid_layout = MenuItemBuilder::with_id("layout_grid", get_menu_text("layout_grid", &locale))
-        .build(app)?;
-
-    let separator = PredefinedMenuItem::separator(app)?;
-    
-    let auto_layout = MenuItemBuilder::with_id("auto_layout", get_menu_text("auto_layout", &locale))
-        .accelerator("Ctrl+Shift+L")
         .build(app)?;
 
     let layout_menu = SubmenuBuilder::new(app, get_menu_text("Layout", &locale))
@@ -283,10 +268,7 @@ fn create_layout_menu<R: Runtime>(
             &flowchart_layout,
             &sequence_layout,
             &architecture_layout,
-            &network_layout,
             &grid_layout,
-            &separator,
-            &auto_layout,
         ])
         .build()?;
 
